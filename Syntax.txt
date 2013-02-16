@@ -1,0 +1,14 @@
+program :	body
+body:		stmline*
+stm:		var = exp | 
+		if exp then stm  |
+		if exp then "\n" body endif |
+		if exp then "\n" body else "\n" body endif 
+stmline:	stm "\n"
+exp:		const | var | -exp | exp op exp | ( exp ) 
+var:		numvar
+const:		numconst
+numvar:		id
+op:		+  |  -  |  * |  /  | %  |  &  |  "|" |  =  |  <>  |  <  |  >  |  <=  |  >=
+
+
