@@ -2,10 +2,10 @@
 
 #include <stdlib.h>
 
-#define MAX_ID_LENGTH 255
-#define MAX_NUMCONST_LENGTH 12
+#define lex_MAX_ID_LENGTH 255
+#define lex_MAX_NUMCONST_LENGTH 12
 
-enum {
+enum lex_Token {
 	tokERROR_NUMCONST_OVERFLOW = -4,
 	tokERROR_ILLEGAL_CHARACTER = -3,
 	tokERROR_IDENTIFIER_TOO_LONG = -2,
@@ -34,7 +34,10 @@ enum {
 	tokTHEN,
 	tokELSE,
 	tokENDIF,
+
+	tokDONTMATCH = 2000000 /* Lexer will never return this token value */
 };
+typedef enum lex_Token lex_Token;
 
 typedef struct lex_Context lex_Context;
 struct lex_Context
@@ -46,12 +49,12 @@ struct lex_Context
 	int col;				/* current column */
 	int c;					/* current character */
 
-	int tok;				/* kind of token from enum above */
+	lex_Token tok;				/* kind of token from enum above */
 
 	/* Values */
 	int numConst;				/* tokNUMCONST */
-	char id[MAX_ID_LENGTH + 1];		/* tokID */
+	char id[lex_MAX_ID_LENGTH + 1];		/* tokID */
 };
 
 lex_Context* lex_initContext(lex_Context* c, const char* sourceCode, size_t sourceCodeLength);
-int lex_nextToken(lex_Context* c);
+lex_Token lex_nextToken(lex_Context* c);

@@ -29,7 +29,7 @@ Build {
 					{ "-g -O2"; Config = { "*-gcc-production", "*-clang-production" } },
 					{ "-O3"; Config = { "*-gcc-release", "*-clang-release" } },
 					{ 
-						"--std=c89", 
+						"--std=c89 -ansi -pedantic", 
 						"-Werror", 
 						"-Wextra", "-Wno-unused-parameter", "-Wno-unused-function"; Config = { "*-gcc-*", "*-clang-*" } },
 

@@ -39,10 +39,10 @@ static int token(lex_Context* c, int tok)
 
 static int tokenNumConst(lex_Context* c, const char* value)
 {
-	char tmpvalue[MAX_NUMCONST_LENGTH];
+	char tmpvalue[lex_MAX_NUMCONST_LENGTH];
 	long v;
 	strncpy(tmpvalue, value, c->sourceCodeCursor - value);
-	tmpvalue[MAX_NUMCONST_LENGTH - 1] = 0;
+	tmpvalue[lex_MAX_NUMCONST_LENGTH - 1] = 0;
 	v = strtol(tmpvalue, 0, 10);
 	if (errno == EINVAL || errno == ERANGE)
 		return token(c, tokERROR_NUMCONST_OVERFLOW);
@@ -57,7 +57,7 @@ static int tokenId(lex_Context* c, const char* idBegin)
 {
 	const int len = c->sourceCodeCursor - idBegin;
 	strncpy(c->id, idBegin, len);
-	assert(len < MAX_ID_LENGTH);
+	assert(len < lex_MAX_ID_LENGTH);
 	c->id[len] = 0;
 	if      (0 == strcmp(c->id, "if"))		return token(c, tokIF);
 	else if (0 == strcmp(c->id, "then"))		return token(c, tokTHEN);	
@@ -81,47 +81,40 @@ lex_Context* lex_initContext(lex_Context* c, const char* sourceCode, size_t sour
 int lex_nextToken(lex_Context* c)
 {
 	nextChar(c);
-	if (c->c == '_' || isalpha(c->c))
-	{
+	if (c->c == '_' || isalpha(c->c)) {
 		const char* idBegin = c->sourceCodeCursor - 1;
-		while(c->sourceCodeCursor - idBegin < MAX_ID_LENGTH)
-		{
+		while(c->sourceCodeCursor - idBegin < lex_MAX_ID_LENGTH) {
 			nextChar(c);
-			if (!(c->c == '_' || isalnum(c->c)))
-			{
+			if (!(c->c == '_' || isalnum(c->c))) {
 				prevChar(c);
 				return tokenId(c, idBegin);
 			}
 		}
 		return token(c, tokERROR_IDENTIFIER_TOO_LONG);
 	}
-	if (isnumber(c->c))
-	{
+	if (isnumber(c->c)) {
 		const char* constBegin = c->sourceCodeCursor - 1;
-		while(c->sourceCodeCursor - constBegin < MAX_NUMCONST_LENGTH)
-		{
+		while(c->sourceCodeCursor - constBegin < lex_MAX_NUMCONST_LENGTH) {
 			nextChar(c);
-			if (!isnumber(c->c))
-			{
+			if (!isnumber(c->c)) {
 				prevChar(c);
 				return tokenNumConst(c, constBegin);
 			}
 		}
 		return token(c, tokERROR_NUMCONST_OVERFLOW);
 	}
-	switch(c->c)
-	{
+	switch(c->c) {
 	case -1  : return token(c, tokEOF);
 	case '\r': /* Fall through */
 	case '\n':
-		for(;;) {
-			nextChar(c);
-			if (c->c != '\r' && c->c != '\n') {
-				prevChar(c);
-				break;
-			}
-		}
-		return token(c, tokNEWLINE);
+		   for(;;) {
+			   nextChar(c);
+			   if (c->c != '\r' && c->c != '\n') {
+				   prevChar(c);
+				   break;
+			   }
+		   }
+		   return token(c, tokNEWLINE);
 	case '+' : return token(c, tokPLUS);
 	case '-' : return token(c, tokMINUS);
 	case '*' : return token(c, tokMULT);
@@ -131,25 +124,25 @@ int lex_nextToken(lex_Context* c)
 	case '|' : return token(c, tokOR);
 	case '=' : return token(c, tokEQ);
 	case '<' :
-		nextChar(c);
-		if (c->c == '>')
-			return token(c, tokNE);
-		else if (c->c == '=')
-			return token(c, tokLE);
-		else
-			prevChar(c);
-		return token(c, tokLT);
+		   nextChar(c);
+		   if (c->c == '>')
+			   return token(c, tokNE);
+		   else if (c->c == '=')
+			   return token(c, tokLE);
+		   else
+			   prevChar(c);
+		   return token(c, tokLT);
 	case '>' :
-		nextChar(c);
-		if (c->c == '=')
-			return token(c, tokGE);
-		else
-			prevChar(c);
-		return token(c, tokGT);
+		   nextChar(c);
+		   if (c->c == '=')
+			   return token(c, tokGE);
+		   else
+			   prevChar(c);
+		   return token(c, tokGT);
 	case ' ' : return token(c, tokWHITE);
 	case '\t': return token(c, tokWHITE);
-	case '(' : return token(c, tokRPAR);
-	case ')' : return token(c, tokLPAR);
+	case '(' : return token(c, tokLPAR);
+	case ')' : return token(c, tokRPAR);
 	default  : return token(c, tokERROR_ILLEGAL_CHARACTER);		   
 	}	
 }

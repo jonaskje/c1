@@ -5,10 +5,27 @@ stm:		var = exp |
 		if exp then "\n" body endif |
 		if exp then "\n" body else "\n" body endif 
 stmline:	stm "\n"
-exp:		const | var | -exp | exp op exp | ( exp ) 
+exp:		const | var | -exp | ( exp ) | exp op exp
 var:		numvar
 const:		numconst
 numvar:		id
 op:		+  |  -  |  * |  /  | %  |  &  |  "|" |  =  |  <>  |  <  |  >  |  <=  |  >=
+
+
+LL(1) expression grammar:
+
+exp1:		term1 exp2
+exp2:		+ exp1 | - exp1 | <empty>
+
+term1:		term3 term2
+term2:		* term1 | / term1 | % term1 | <empty>
+
+term3:		term5 term4
+term4:		< term3 | > term3 | <= term3 | >= term3 | <empty>
+
+term5:		factor term6
+term6:		== term3 | <> term3 | <empty>
+
+factor:		const | var | (exp1) | -factor
 
 
