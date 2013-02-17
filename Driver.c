@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 	int ret = 0;
 	char* code = 0;
 	size_t size;
-	demobasic_Allocator allocator;
+	mem_Allocator allocator;
 	demobasic_MachineCode* machineCode = 0;
 
 	if (0 != readFile(argv[1], &code, &size))

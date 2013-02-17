@@ -1,3 +1,9 @@
+a= 0
+  b = 1
+if a=20 and (b-2)=2 then
+	b = 10 * a
+	a = 4
+endif
 a = -200000
 b = 0
 
@@ -11,10 +17,6 @@ else
 	a = 10 - a
 endif
 
-if (a=20) then
-	b = 10 * a
-	a = 4
-endif
 
 
 

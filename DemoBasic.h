@@ -1,12 +1,6 @@
 #pragma once
+#include "Memory.h"
 #include <stdlib.h>
-
-typedef struct demobasic_Allocator demobasic_Allocator;
-struct demobasic_Allocator
-{
-	void* (*allocMem)(size_t size);
-	void (*freeMem)(void* p);
-};
 
 typedef struct demobasic_MachineCode demobasic_MachineCode;
 struct demobasic_MachineCode
@@ -16,6 +10,6 @@ struct demobasic_MachineCode
 };
 
 demobasic_MachineCode* 
-demobasic_compile(const char* sourceCode, size_t sourceCodeLength, const demobasic_Allocator* allocator);
+demobasic_compile(const char* sourceCode, size_t sourceCodeLength, const mem_Allocator* allocator);
 
 

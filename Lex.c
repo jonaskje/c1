@@ -63,6 +63,9 @@ static int tokenId(lex_Context* c, const char* idBegin)
 	else if (0 == strcmp(c->id, "then"))		return token(c, tokTHEN);	
 	else if (0 == strcmp(c->id, "else"))		return token(c, tokELSE);	
 	else if (0 == strcmp(c->id, "endif"))		return token(c, tokENDIF);	
+	else if (0 == strcmp(c->id, "and"))		return token(c, tokLOGICALAND);	
+	else if (0 == strcmp(c->id, "or"))		return token(c, tokLOGICALOR);	
+	else if (0 == strcmp(c->id, "not"))		return token(c, tokLOGICALNOT);	
 	else						return token(c, tokID);
 }
 

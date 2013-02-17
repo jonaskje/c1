@@ -29,6 +29,9 @@ enum lex_Token {
 	tokGT,
 	tokLE,
 	tokGE,
+	tokLOGICALAND,
+	tokLOGICALOR,
+	tokLOGICALNOT,
 
 	tokIF,
 	tokTHEN,
