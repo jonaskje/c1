@@ -76,6 +76,12 @@ static const char* unaryOpToString(cg_UnaryOp op)
 	}
 }
 
+static int getTempVariableIndex(cg_Context* c)
+{
+	int i = c->tempIndex++;
+	return i;
+}
+
 cg_Context* cg_newContext(const mem_Allocator* allocator)
 {
 	cg_Context* c = (cg_Context*)(allocator->allocMem)(sizeof(cg_Context));
@@ -140,11 +146,10 @@ void cg_pushBinOp(cg_Context* c, cg_BinOp op)
 	ct_fixStackPop(&c->valueStack);
        	v1 = ct_fixStackTop(&c->valueStack);
 	ct_fixStackPop(&c->valueStack);
-
 	c->tempIndex -= (v1->type == TempVar) + (v2->type == TempVar);
 
 	newValue.type = TempVar;
-	newValue.val.tempIndex = c->tempIndex++;	
+	newValue.val.tempIndex = getTempVariableIndex(c);
 
 	{
 		char buf0[lex_MAX_ID_LENGTH + 1];
@@ -164,16 +169,14 @@ void cg_pushUnaryOp(cg_Context* c, cg_UnaryOp op)
 
        	v1 = ct_fixStackTop(&c->valueStack);
 	ct_fixStackPop(&c->valueStack);
-
 	c->tempIndex -= (v1->type == TempVar);
 
 	newValue.type = TempVar;
-	newValue.val.tempIndex = c->tempIndex++;	
+	newValue.val.tempIndex = getTempVariableIndex(c);	
 
 	{
 		char buf0[lex_MAX_ID_LENGTH + 1];
 		char buf1[lex_MAX_ID_LENGTH + 1];
-		char buf2[lex_MAX_ID_LENGTH + 1];
 		printf("%s = %s %s\n", valueToString(buf0, &newValue), unaryOpToString(op), valueToString(buf1, v1));
 	}
 	
@@ -193,7 +196,7 @@ cg_Label* cg_ifFalseGoto(cg_Context* c)
 	ct_fixArrayPushBack(&c->labels, &label);
 	{
 		char buf0[lex_MAX_ID_LENGTH + 1];
-		printf("ifFalse %s goto L%04d\n", valueToString(buf0, v1), ct_fixArrayLast(&c->labels)->locationIndex);
+		printf("ifZero %s goto L%04d\n", valueToString(buf0, v1), ct_fixArrayLast(&c->labels)->locationIndex);
 	}
 	return ct_fixArrayLast(&c->labels);
 }
