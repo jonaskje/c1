@@ -7,7 +7,14 @@
 typedef struct VarDecl VarDecl;
 struct VarDecl
 {
+
 	char id[lex_MAX_ID_LENGTH];
+};
+
+typedef struct Var Var;
+struct Var
+{
+	VarDecl* decl;
 };
 
 typedef struct demobasic_Context demobasic_Context;
@@ -18,6 +25,7 @@ struct demobasic_Context
 	const mem_Allocator* allocator;
 	ct_FixArray(VarDecl, 1000) varDecls;
 };
+
 
 /************************************************************************/
 static void parseBody(demobasic_Context* c, int endToken1, int endToken2);
@@ -124,7 +132,7 @@ static void parseExp2(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExpression(c);
-		cg_pushBinOp(c->cg, cg_LOGICALOR);
+		/*cg_pushBinOp(c->cg, cg_LOGICALOR);*/
 	} else {
 		/* something else, but this is ok */
 	}
@@ -143,7 +151,7 @@ static void parseExp4(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp3(c);
-		cg_pushBinOp(c->cg, cg_LOGICALAND);
+		/*cg_pushBinOp(c->cg, cg_LOGICALAND);*/
 	} else {
 		/* something else, but this is ok */
 	}
@@ -162,12 +170,12 @@ static void parseExp6(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp5(c);
-		cg_pushBinOp(c->cg, cg_EQ);
+		/*cg_pushBinOp(c->cg, cg_EQ);*/
 	} else if (getToken(c) == tokNE) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp5(c);
-		cg_pushBinOp(c->cg, cg_NE);
+		/*cg_pushBinOp(c->cg, cg_NE);*/
 	} else {
 		/* something else, but this is ok */
 	}
@@ -186,22 +194,22 @@ static void parseExp8(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp7(c);
-		cg_pushBinOp(c->cg, cg_LT);
+		/*cg_pushBinOp(c->cg, cg_LT);*/
 	} else if (getToken(c) == tokGT) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp7(c);
-		cg_pushBinOp(c->cg, cg_GT);
+		/*cg_pushBinOp(c->cg, cg_GT);*/
 	} else if (getToken(c) == tokLE) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp7(c);
-		cg_pushBinOp(c->cg, cg_LE);
+		/*cg_pushBinOp(c->cg, cg_LE);*/
 	} else if (getToken(c) == tokGE) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp7(c);
-		cg_pushBinOp(c->cg, cg_GE);
+		/*cg_pushBinOp(c->cg, cg_GE);*/
 	} else {
 		/* something else, but this is ok */
 	}
@@ -220,12 +228,12 @@ static void parseExp10(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp9(c);
-		cg_pushBinOp(c->cg, cg_PLUS);
+		/*cg_pushBinOp(c->cg, cg_PLUS);*/
 	} else if (getToken(c) == tokMINUS) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExp9(c);
-		cg_pushBinOp(c->cg, cg_MINUS);
+		/*cg_pushBinOp(c->cg, cg_MINUS);*/
 	} else {
 		/* something else, but this is ok */
 	}
@@ -244,17 +252,17 @@ static void parseTerm2(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseTerm1(c);
-		cg_pushBinOp(c->cg, cg_MULT);
+		/*cg_pushBinOp(c->cg, cg_MULT);*/
 	} else if (getToken(c) == tokDIV) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseTerm1(c);
-		cg_pushBinOp(c->cg, cg_DIV);
+		/*cg_pushBinOp(c->cg, cg_DIV);*/
 	} else if (getToken(c) == tokMOD) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseTerm1(c);
-		cg_pushBinOp(c->cg, cg_MOD);
+		/*cg_pushBinOp(c->cg, cg_MOD);*/
 	} else {
 		/* something else, but this is ok */
 	}
@@ -263,11 +271,11 @@ static void parseTerm2(demobasic_Context* c)
 static void parseFactor(demobasic_Context* c)
 {
 	if (getToken(c) == tokNUMCONST) {	/* const */
-		cg_pushNumConst(c->cg, c->lex.numConst);
+		/*cg_pushNumConst(c->cg, c->lex.numConst);*/
 		lex_nextToken(&c->lex);
 	} else if (getToken(c) == tokID) {	/* var */
 		const VarDecl* var = findOrFailVarDecl(c, c->lex.id);
-		cg_pushVar(c->cg, var->id);
+		/*cg_pushVar(c->cg, var->id);*/
 		lex_nextToken(&c->lex);
 	} else if (getToken(c) == tokLPAR) {	/* ( exp1 ) */
 		lex_nextToken(&c->lex);
@@ -278,12 +286,12 @@ static void parseFactor(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseFactor(c);
-		cg_pushUnaryOp(c->cg, cg_UNARYMINUS);
+		/*cg_pushUnaryOp(c->cg, cg_UNARYMINUS);*/
 	} else if (getToken(c) == tokLOGICALNOT) {	/* not exp */
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseFactor(c);
-		cg_pushUnaryOp(c->cg, cg_LOGICALNOT);
+		/*cg_pushUnaryOp(c->cg, cg_LOGICALNOT);*/
 	} else {
 		parseError(c);
 	}
@@ -293,46 +301,46 @@ static void parseStm(demobasic_Context* c)
 {
 	if (getToken(c) == tokID) {
 		const VarDecl* var = findOrAddVarDecl(c, c->lex.id);
-		cg_pushVar(c->cg, var->id);
+		/*cg_pushVar(c->cg, var->id);*/
 		lex_nextToken(&c->lex);
 		skipToken(c, tokEQ);
 		skip(c);
 		parseExpression(c);
-		cg_assign(c->cg);
+		/*cg_assign(c->cg);*/
 	} else if (getToken(c) == tokIF) {
 		lex_nextToken(&c->lex);
 		skip(c);
 		parseExpression(c);
 		skipToken(c, tokTHEN);
 		if (getToken(c) == tokNEWLINE) {
-			cg_Label* label1;
+			/*cg_Label* label1;*/
 			lex_nextToken(&c->lex);
 			skip(c);
-			label1 = cg_ifFalseGoto(c->cg);
+			/*label1 = cg_ifFalseGoto(c->cg);*/
 			parseBody(c, tokENDIF, tokELSE);
 			if (getToken(c) == tokENDIF) {
 				lex_nextToken(&c->lex);
-				cg_label(c->cg, label1);
+				/*cg_label(c->cg, label1);*/
 			} else if (getToken(c) == tokELSE) {
-				cg_Label* label2;
+				/*cg_Label* label2;*/
 				lex_nextToken(&c->lex);
-				label2 = cg_goto(c->cg);
-				cg_label(c->cg, label1);
+				/*label2 = cg_goto(c->cg);*/
+				/*cg_label(c->cg, label1);*/
 				skipToken(c, tokNEWLINE);
 				parseBody(c, tokENDIF, tokDONTMATCH);
 				checkToken(c, tokENDIF);
-				cg_label(c->cg, label2);
+				/*cg_label(c->cg, label2);*/
 			} else {
 				parseError(c);
 			}
 		} else {
 			/* Single line if */
-			cg_Label* label;
+			/*cg_Label* label;*/
 			lex_nextToken(&c->lex);
 			skip(c);
-			label = cg_ifFalseGoto(c->cg);
+			/*label = cg_ifFalseGoto(c->cg);*/
 			parseStm(c);
-			cg_label(c->cg, label);
+			/*cg_label(c->cg, label);*/
 		}
 
 	} else if (getToken(c) == tokNEWLINE) { /* empty line */

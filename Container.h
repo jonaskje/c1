@@ -22,6 +22,12 @@
 		(array)->n++; \
 	} while(0)
 
+#define ct_fixArrayPushBackRaw(array) \
+	do { \
+		assert((array)->n <= sizeof((array)->a)/sizeof((array)->a[0])); \
+		(array)->n++; \
+	} while(0);
+
 #define ct_fixArrayPopBack(array) \
 	do { \
 		assert((array)->n > 0); \
@@ -41,6 +47,10 @@
 
 #define ct_fixArrayForEach(array, iterator) \
 	for((iterator) = (array)->a; (iterator) != &(array)->a[(array)->n]; ++(iterator))
+
+#define ct_fixArraySize(array) \
+	((array)->n)
+
 
 /******************************************************************************
  FixStack
