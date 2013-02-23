@@ -10,6 +10,6 @@ struct demobasic_MachineCode
 };
 
 demobasic_MachineCode* 
-demobasic_compile(const char* sourceCode, size_t sourceCodeLength, const mem_Allocator* allocator);
+demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator* allocator);
 
 

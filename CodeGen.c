@@ -1,41 +1,14 @@
 #include "CodeGen.h"
+#include "CodeGenInternal.h"
 #include "Lex.h"
 #include "Container.h"
+#include "EmitC.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <stddef.h>
 
-
-struct cg_Label
-{
-	const char* id;
-};
-
-enum cg_Kind
-{
-	cg_Variable,
-	cg_IntConstant,
-	cg_StringConstant,
-	cg_NumberConstant
-};
-typedef enum cg_Kind cg_Kind;
-
-struct cg_Var
-{
-	cg_Type type;
-	cg_Kind kind;
-	union {
-		const char* s;
-		struct {
-			size_t isSet : 1;
-			size_t id : (sizeof(size_t)*8 - 1);
-		} temp;
-		int i;
-		double d;
-	} v;
-};
 
 #define cg_MAX_LABELS 1000
 #define cg_MAX_VARS 1000
@@ -48,95 +21,37 @@ struct cg_Context
 
 	/* Id of next allocated variable id */	
 	int tempVariableId;
+
+	/* Id of next allocated temp label */	
+	int tempLabelId;
+
+	cg_Backend* backend;
 };
 
 /******************************************************************************/
 static void
 useTempVar(cg_Context* c, cg_Var* var)
 {
-	if (var->kind == cg_Variable && var->v.temp.isSet)
+	if (var->kind == cg_TempVariable)
 	{
 		assert(c->tempVariableId > 0);
 		--c->tempVariableId;
 	}
 }
 
-static void
-printLabel(cg_Label* label)
-{
-	printf("%s", label->id);
-}
-
-static void
-printVar(cg_Var* var)
-{
-	switch(var->kind) {
-	case cg_Variable:
-		if (var->v.temp.isSet)
-			printf("T%lu", var->v.temp.id);
-		else
-			printf("%s", var->v.s);
-		break;
-	case cg_IntConstant:
-		printf("%d", var->v.i);
-		break;
-	case cg_NumberConstant:
-		printf("%f", var->v.d);
-		break;
-	case cg_StringConstant:
-		printf("\"%s\"", var->v.s);
-		break;
-	default:
-		assert(0);
-	}
-}
-
-static const char* 
-binOpToString(cg_BinOp op)
-{
-	switch(op) {
-	case cg_EQ:		return "=";
-	case cg_NE:		return "<>";
-	case cg_LT:		return "<";
-	case cg_GT:		return ">";
-	case cg_LE:		return "<=";
-	case cg_GE:		return ">=";
-	case cg_LOGICALAND:	return "and";
-	case cg_LOGICALOR:	return "or";
-	case cg_MULT:		return "*";
-	case cg_DIV:		return "/";
-	case cg_MOD:		return "%";
-	case cg_PLUS:		return "+";
-	case cg_MINUS:		return "-";
-	}
-}
-
-static const char* 
-unaryOpToString(cg_UnaryOp op)
-{
-	switch(op) {
-	case cg_UNARYMINUS:		return "-";
-	case cg_LOGICALNOT:		return "not";
-	}
-}
 /******************************************************************************/
 
 cg_Context* 
-cg_newContext(const mem_Allocator* allocator)
+cg_newContext(mem_Allocator* allocator)
 {
 	cg_Context* c = (cg_Context*)(allocator->allocMem)(sizeof(cg_Context));
 	c->allocator = allocator;
 	ct_fixArrayInit(&c->labels);
 	ct_fixArrayInit(&c->vars);
-
-	/* test */
-	{
-		cg_Var var;
-		var.v.s = 0;
-		var.v.temp.isSet = 1u;
-		assert((size_t)(var.v.s) == 1u);
-		return c;
-	}
+	c->tempVariableId = 0;
+	c->tempLabelId = 0;
+	c->backend = ec_newCCodeBackend(allocator);
+	return c;
 }
 
 void 
@@ -151,10 +66,19 @@ cg_deleteContext(cg_Context* c)
 cg_Label* 
 cg_newLabel(cg_Context* c, const char* name)
 {
+	cg_Label* label;
 	assert(ct_fixArraySize(&c->labels) < cg_MAX_LABELS);
 	ct_fixArrayPushBackRaw(&c->labels);
-	ct_fixArrayLast(&c->labels)->id = name;
+	label = ct_fixArrayLast(&c->labels);
+	label->id = name;
+	label->tempId = name ? 0 : c->tempLabelId++;
 	return ct_fixArrayLast(&c->labels);
+}
+
+cg_Label*	
+cg_newTempLabel(cg_Context* c)
+{
+	return cg_newLabel(c, 0);
 }
 
 cg_Var*	
@@ -165,21 +89,21 @@ cg_newVar(cg_Context* c, const char* name, cg_Type type)
 	ct_fixArrayPushBackRaw(&c->vars);
 	v = ct_fixArrayLast(&c->vars);
 	v->type = type;
-	v->kind = cg_Variable;
 	if (name) {
+		v->kind = cg_Variable;
 		v->v.s = name;
 	} else {
-		v->v.temp.isSet = 1u;
-		v->v.temp.id = c->tempVariableId++;
+		v->kind = cg_TempVariable;
+		v->v.i = -1; /* Will be initialized when assigned to */
 	}
 
 	return v;
 }
 
 cg_Var*		
-cg_newTempVar(cg_Context* c, cg_Type type)
+cg_newTempVar(cg_Context* c, cg_Var* inheritType)
 {
-	return cg_newVar(c, 0, type);
+	return cg_newVar(c, 0, inheritType->type);
 }
 
 cg_Var*	
@@ -224,20 +148,19 @@ cg_newStringConstant(cg_Context* c, const char* value)
 void
 cg_emitLabel(cg_Context* c, cg_Label* label)
 {
-	printLabel(label);
-	printf(":\n");
+	c->backend->emitLabel(c->backend, label);
 }
 
 void
-cg_emitBeginFunc(cg_Context* c)
+cg_emitBeginFunc(cg_Context* c, cg_Label* label)
 {
-	printf("\tbeginFunc\n");
+	c->backend->emitBeginFunc(c->backend, label);
 }
 
 void
 cg_emitEndFunc(cg_Context* c)
 {
-	printf("\tendFunc\n");
+	c->backend->emitEndFunc(c->backend);
 }
 
 void
@@ -251,12 +174,11 @@ cg_emitAssign(cg_Context* c, cg_Var* result, cg_Var* var)
 	} else {
 		assert(result->type == var->type);
 	}
+
+	if (result->kind == cg_TempVariable)
+		result->v.i = c->tempVariableId++;
 	
-	printf("\t");
-	printVar(result);
-	printf(" = ");
-	printVar(var);
-	printf("\n");
+	c->backend->emitAssign(c->backend, result, var);
 }
 
 void
@@ -274,13 +196,11 @@ cg_emitBinOp(cg_Context* c, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_Var* v
 		assert(result->type == var1->type);
 	}
 	
-	printf("\t");
-	printVar(result);
-	printf(" = ");
-	printVar(var1);
-	printf(" %s ", binOpToString(op));
-	printVar(var2);
-	printf("\n");
+	if (result->kind == cg_TempVariable)
+		result->v.i = c->tempVariableId++;
+	
+	
+	c->backend->emitBinOp(c->backend, result, var1, op, var2);
 }
 
 void
@@ -295,12 +215,11 @@ cg_emitUnaryOp(cg_Context* c, cg_Var* result, cg_UnaryOp op, cg_Var* var)
 		assert(result->type == var->type);
 	}
 
-	printf("\t");
-	printVar(result);
-	printf(" = ");
-	printf(" %s", unaryOpToString(op));
-	printVar(var);
-	printf("\n");
+	if (result->kind == cg_TempVariable)
+		result->v.i = c->tempVariableId++;
+	
+	
+	c->backend->emitUnaryOp(c->backend, result, op, var);
 }
 
 void
@@ -310,19 +229,20 @@ cg_emitIfFalseGoto(cg_Context* c, cg_Var* var, cg_Label* label)
 	
 	assert(var->type != cg_Auto);
 	
-	printf("\tifFalse ");
-	printVar(var);
-	printf(" then goto ");
-	printLabel(label);
-	printf("\n");
+	c->backend->emitIfFalseGoto(c->backend, var, label);
 }
 
 void
 cg_emitGoto(cg_Context* c, cg_Label* label)
 {
-	printf("\tgoto ");
-	printLabel(label);
-	printf("\n");
+	c->backend->emitGoto(c->backend, label);
 }
 
+
+cg_Type		
+cg_varType(cg_Context* c, cg_Var* var)
+{
+	(void)c;
+	return var->type;
+}
 
