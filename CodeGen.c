@@ -3,6 +3,7 @@
 #include "Lex.h"
 #include "Container.h"
 #include "EmitC.h"
+#include "MachineCode.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -42,7 +43,7 @@ useTempVar(cg_Context* c, cg_Var* var)
 /******************************************************************************/
 
 cg_Context* 
-cg_newContext(mem_Allocator* allocator)
+cg_newContext(mem_Allocator* allocator, mc_MachineCode* mc)
 {
 	cg_Context* c = (cg_Context*)(allocator->allocMem)(sizeof(cg_Context));
 	c->allocator = allocator;
@@ -50,7 +51,7 @@ cg_newContext(mem_Allocator* allocator)
 	ct_fixArrayInit(&c->vars);
 	c->tempVariableId = 0;
 	c->tempLabelId = 0;
-	c->backend = ec_newCCodeBackend(allocator);
+	c->backend = ec_newCCodeBackend(allocator, mc);
 	return c;
 }
 
@@ -61,6 +62,12 @@ cg_deleteContext(cg_Context* c)
 		return;
 
 	(c->allocator->freeMem)(c);
+}
+
+void		
+cg_finalize(cg_Context* c)
+{
+	c->backend->finalize(c->backend);
 }
 
 cg_Label* 
@@ -114,7 +121,7 @@ cg_newIntConstant(cg_Context* c, int value)
 	ct_fixArrayPushBackRaw(&c->vars);
 	v = ct_fixArrayLast(&c->vars);
 	v->type = cg_Int;
-	v->kind = cg_IntConstant;
+	v->kind = cg_Constant;
 	v->v.i = value;
 	return v;
 }
@@ -127,7 +134,7 @@ cg_newNumberConstant(cg_Context* c, double value)
 	ct_fixArrayPushBackRaw(&c->vars);
 	v = ct_fixArrayLast(&c->vars);
 	v->type = cg_Number;
-	v->kind = cg_NumberConstant;
+	v->kind = cg_Constant;
 	v->v.d = value;
 	return v;
 }
@@ -140,7 +147,7 @@ cg_newStringConstant(cg_Context* c, const char* value)
 	ct_fixArrayPushBackRaw(&c->vars);
 	v = ct_fixArrayLast(&c->vars);
 	v->type = cg_String;
-	v->kind = cg_StringConstant;
+	v->kind = cg_Constant;
 	v->v.s = value;
 	return v;
 }

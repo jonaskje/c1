@@ -2,14 +2,9 @@
 #include "Memory.h"
 #include <stdlib.h>
 
-typedef struct demobasic_MachineCode demobasic_MachineCode;
-struct demobasic_MachineCode
-{
-	const char* code;
-	size_t codeSize; 
-};
+struct mc_MachineCode;
 
-demobasic_MachineCode* 
+struct mc_MachineCode* 
 demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator* allocator);
 
 

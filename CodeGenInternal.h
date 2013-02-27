@@ -12,9 +12,7 @@ enum cg_Kind
 {
 	cg_Variable,
 	cg_TempVariable,
-	cg_IntConstant,
-	cg_StringConstant,
-	cg_NumberConstant
+	cg_Constant
 };
 typedef enum cg_Kind cg_Kind;
 
@@ -40,5 +38,7 @@ struct cg_Backend
 	void (*emitUnaryOp)(cg_Backend* c, cg_Var* result, cg_UnaryOp op, cg_Var* var);
 	void (*emitIfFalseGoto)(cg_Backend* c, cg_Var* var, cg_Label* label);
 	void (*emitGoto)(cg_Backend* c, cg_Label* label);
+
+	void (*finalize)(cg_Backend* c);
 };
 

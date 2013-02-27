@@ -2,12 +2,13 @@
 #include "Lex.h"
 #include "CodeGen.h"
 #include "Container.h"
+#include "MachineCode.h"
 #include <stdio.h>
 
 typedef struct VarDecl VarDecl;
 struct VarDecl
 {
-	cg_Type type;
+	cg_Var* var;
 	char id[lex_MAX_ID_LENGTH];
 };
 
@@ -24,9 +25,7 @@ struct demobasic_Context
 /************************************************************************/
 static void parseBody(demobasic_Context* c, int endToken1, int endToken2);
 static cg_Var* parseFactor(demobasic_Context* c);
-static cg_Var* parseTerm2(demobasic_Context* c, cg_Var* lhs);
 static cg_Var* parseTerm1(demobasic_Context* c);
-static cg_Var* parseExp10(demobasic_Context* c, cg_Var* lhs);
 static cg_Var* parseExp9(demobasic_Context* c);
 static cg_Var* parseExp8(demobasic_Context* c, cg_Var* lhs);
 static cg_Var* parseExp7(demobasic_Context* c);
@@ -55,8 +54,8 @@ static VarDecl* findOrAddVarDecl(demobasic_Context* c, const char* id)
 		return it;
 	} else {
 		VarDecl newDecl;
-		newDecl.type = cg_Auto;
 		strcpy(newDecl.id, id);
+		newDecl.var = cg_newVar(c->cg, newDecl.id, cg_Auto);
 		ct_fixArrayPushBack(&c->varDecls, &newDecl);
 		return ct_fixArrayLast(&c->varDecls);
 	}
@@ -193,33 +192,51 @@ static cg_Var* parseExp8(demobasic_Context* c, cg_Var* lhs)
 static cg_Var* parseExp9(demobasic_Context* c)
 {
 	cg_Var* lhs = parseTerm1(c);
-	skip(c);
-	return parseExp10(c, lhs);
-}
+	cg_Var* rhs;
+	cg_Var* acc = lhs;
+	cg_BinOp op;
 
-static cg_Var* parseExp10(demobasic_Context* c, cg_Var* lhs)
-{
-	switch(getToken(c)) {
-	case tokPLUS:		return doBinaryOpNode(c, lhs, parseExp9, cg_PLUS);
-	case tokMINUS:		return doBinaryOpNode(c, lhs, parseExp9, cg_MINUS);
-	default:		return lhs;
+	for(;;)	
+	{
+		skip(c);
+		switch(getToken(c)) {
+		case tokPLUS:		op = cg_PLUS; break;
+		case tokMINUS:		op = cg_MINUS; break;
+		default:		return acc;
+		}
+		
+		lex_nextToken(&c->lex);
+		skip(c);
+		rhs = parseTerm1(c);
+		acc = cg_newTempVar(c->cg, rhs);
+		cg_emitBinOp(c->cg, acc, lhs, op, rhs);
+		lhs = acc;
 	}
 }
 
 static cg_Var* parseTerm1(demobasic_Context* c)
 {
 	cg_Var* lhs = parseFactor(c);
-	skip(c);
-	return parseTerm2(c, lhs);
-}
+	cg_Var* rhs;
+	cg_Var* acc = lhs;
+	cg_BinOp op;
 
-static cg_Var* parseTerm2(demobasic_Context* c, cg_Var* lhs)
-{
-	switch(getToken(c)) {
-	case tokMULT:		return doBinaryOpNode(c, lhs, parseTerm1, cg_MULT);
-	case tokDIV:		return doBinaryOpNode(c, lhs, parseTerm1, cg_DIV);
-	case tokMOD:		return doBinaryOpNode(c, lhs, parseTerm1, cg_MOD);
-	default:		return lhs;
+	for(;;)	
+	{
+		skip(c);
+		switch(getToken(c)) {
+		case tokMULT:		op = cg_MULT; break;
+		case tokDIV:		op = cg_DIV; break;
+		case tokMOD:		op = cg_MOD; break;
+		default:		return acc;
+		}
+		
+		lex_nextToken(&c->lex);
+		skip(c);
+		rhs = parseFactor(c);
+		acc = cg_newTempVar(c->cg, rhs);
+		cg_emitBinOp(c->cg, acc, lhs, op, rhs);
+		lhs = acc;
 	}
 }
 
@@ -232,7 +249,7 @@ static cg_Var* parseFactor(demobasic_Context* c)
 		lex_nextToken(&c->lex);
 	} else if (getToken(c) == tokID) {	/* var */
 		VarDecl* var = findOrFailVarDecl(c, c->lex.id);
-		result = cg_newVar(c->cg, var->id, var->type);
+		result = var->var;
 		lex_nextToken(&c->lex);
 	} else if (getToken(c) == tokLPAR) {	/* ( exp1 ) */
 		lex_nextToken(&c->lex);
@@ -262,12 +279,10 @@ static void parseStm(demobasic_Context* c)
 {
 	if (getToken(c) == tokID) {
 		VarDecl* var = findOrAddVarDecl(c, c->lex.id);
-		cg_Var* result = cg_newVar(c->cg, c->lex.id, var->type);
 		lex_nextToken(&c->lex);
 		skipToken(c, tokEQ);
 		skip(c);
-		cg_emitAssign(c->cg, result, parseExpression(c));
-		var->type = cg_varType(c->cg, result); /* Copy the type for future use of var */
+		cg_emitAssign(c->cg, var->var, parseExpression(c));
 	} else if (getToken(c) == tokIF) {
 		cg_Var* expr;
 		cg_Label* label1 = cg_newTempLabel(c->cg);
@@ -332,19 +347,29 @@ static void parseProgram(demobasic_Context* c)
 	skip(c);
 	parseBody(c, tokEOF, tokDONTMATCH);
 	cg_emitEndFunc(c->cg);
+	cg_finalize(c->cg);
 }
 
-demobasic_MachineCode* 
+mc_MachineCode* 
 demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator* allocator)
 {
+	const size_t Capacity = 1024*1024;
 	demobasic_Context c;
+	mc_MachineCode* result = (mc_MachineCode*)(allocator->allocMem)(Capacity);
+	memset(result, 0, sizeof(mc_MachineCode));
+	result->capacity = Capacity;
+	result->size = sizeof(mc_MachineCode);
+
 	c.allocator = allocator;
 	ct_fixArrayInit(&c.varDecls);
-	c.cg = cg_newContext(allocator);
+	c.cg = cg_newContext(allocator, result);
 	lex_initContext(&c.lex, sourceCode, sourceCodeLength);
 	lex_nextToken(&c.lex);
 	parseProgram(&c);
+
 	cg_deleteContext(c.cg);
-	return 0;
+
+	/* TODO: trim demobasic_MachineCode (realloc?) */
+	return result;
 }
 

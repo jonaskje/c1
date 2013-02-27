@@ -45,6 +45,9 @@
 #define ct_fixArrayLast(array) \
 	(&((array)->a[(array)->n - 1]))
 
+#define ct_fixArrayItem(array, n) \
+	(&((array)->a[(n)]))
+
 #define ct_fixArrayForEach(array, iterator) \
 	for((iterator) = (array)->a; (iterator) != &(array)->a[(array)->n]; ++(iterator))
 

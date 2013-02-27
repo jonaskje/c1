@@ -4,6 +4,7 @@
 typedef struct cg_Context	cg_Context;
 typedef struct cg_Label		cg_Label;
 typedef struct cg_Var		cg_Var;
+struct mc_MachineCode;
 
 enum cg_BinOp {
 	cg_EQ,
@@ -36,8 +37,9 @@ enum cg_Type {
 };
 typedef enum cg_Type cg_Type;
 
-cg_Context*	cg_newContext(		mem_Allocator* allocator);
+cg_Context*	cg_newContext(		mem_Allocator* allocator, struct mc_MachineCode* mc);
 void		cg_deleteContext(	cg_Context* c);
+void		cg_finalize(		cg_Context* c);
 
 cg_Label*	cg_newLabel(		cg_Context* c, const char* name);
 cg_Label*	cg_newTempLabel(	cg_Context* c);
