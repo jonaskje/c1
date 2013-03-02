@@ -21,12 +21,27 @@ struct ec_StackEntry
 	size_t size;	/* Size of entry */
 };
 
+typedef struct ec_LabelRef ec_LabelRef;
+struct ec_LabelRef
+{
+	const cg_Label* label;		/* The referenced label */
+	u32 offset;			/* Offset of reference in generated code */
+};
+
+#define ec_MAX_LABELS 1000
+#define ec_MAX_LABEL_REFS 2000
+
 typedef struct ec_Context ec_Context;
 struct ec_Context 
 {
 	cg_Backend backend; /* Must be the first member */
 	mem_Allocator* allocator;
 	ct_FixArray(ec_StackEntry, 256) stackEntries;
+
+	ct_FixArray(const cg_Label*, ec_MAX_LABELS) labels;
+	ct_FixArray(size_t, ec_MAX_LABELS) labelOffsets;
+	ct_FixArray(ec_LabelRef, ec_MAX_LABEL_REFS) labelRefs;
+
 	size_t stackSize;
 	u8* stackSizePatch[2];
 	mc_MachineCode* machineCode;
@@ -263,6 +278,34 @@ e_xor_r64_r64(ec_Context* c, u8 r1, u8 r2)
 	put3(c, rexW(r1, r2), 0x33u, modrmReg(r1, r2));
 }
 
+static void
+e_not_r64(ec_Context* c, u8 reg)
+{
+	/* REX.W + F7 /2 */
+	put3(c, rexW(0, reg), 0xf7u, modrmReg(2, reg)); 
+}
+
+static void
+e_jz_rel(ec_Context* c, i32 relAddr)
+{
+	put2(c, 0x0fu, 0x84u);
+	puti32(c, relAddr);
+}
+
+static void
+e_jmp_rel(ec_Context* c, i32 relAddr)
+{
+	put(c, 0xe9u);
+	puti32(c, relAddr);
+}
+
+static void
+e_test_al_imm8(ec_Context* c, u8 imm8)
+{
+	/* A8 ib */
+	put2(c, 0xa8u, imm8);
+}
+
 /******************************************************************************/
 
 static ec_StackEntry*
@@ -343,12 +386,62 @@ moveRegToVar(ec_Context* c, cg_Var* var, u8 reg)
 	}
 }
 
+static void
+addLabel(ec_Context* c, const cg_Label* label)
+{
+	const cg_Label** labelIterator;
+	size_t offset;
+	
+	/* Sanity check unique labels */
+	ct_fixArrayForEach(&c->labels, labelIterator) {
+		if ((*labelIterator) == label) 
+			assert(0 && "Same label added twice");
+	}
+
+	ct_fixArrayPushBack(&c->labels, &label);
+	offset = c->streamCursor - c->stream;
+	ct_fixArrayPushBack(&c->labelOffsets, &offset);
+}
+
+static void
+addLabelRef(ec_Context* c, const cg_Label* label, size_t referenceOffset)
+{
+	const ec_LabelRef ref = { label, referenceOffset };
+	ct_fixArrayPushBack(&c->labelRefs, &ref);
+}
+
+static void
+fixupLabelRefs(ec_Context* c)
+{
+	ec_LabelRef* refIterator;
+	i32 relOffs;
+	ct_fixArrayForEach(&c->labelRefs, refIterator) {
+		const cg_Label** labelIterator;
+		const cg_Label* label = 0;
+		ct_fixArrayForEach(&c->labels, labelIterator) {
+			if ((*labelIterator) == refIterator->label) {
+				label = *labelIterator;
+				break;
+			}
+		}
+		if (!label)
+			assert(0 && "Same labelRef not found"); /* Should be checked by parser */
+
+
+
+		relOffs = c->labelOffsets.a[labelIterator - c->labels.a] - (refIterator->offset +
+									    sizeof(i32));
+		writei32(c->stream + refIterator->offset, relOffs);
+	}
+}
+
 /******************************************************************************/
 
 static void 
 ec_emitLabel(cg_Backend* backend, cg_Label* label)
 {
 	ec_Context* c = ec_getContext(backend);	
+	addLabel(c, label);
 }
 
 static void 
@@ -449,6 +542,10 @@ ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_
 				e_idiv_r64(		c, ec_R15);	
 				e_mov_r64_r64(		c, ec_RAX, ec_RDX); /* Remainder in RDX */
 				break;
+	case cg_EQ:
+				e_sub_r64_r64(		c, ec_RAX, ec_R15);	
+				e_not_r64(		c, ec_RAX);	
+				break;
 	default: assert(0);
 	}
 	
@@ -459,18 +556,25 @@ static void
 ec_emitUnaryOp(cg_Backend* backend, cg_Var* result, cg_UnaryOp op, cg_Var* var)
 {
 	ec_Context* c = ec_getContext(backend);	
+	assert(0 && "Unary not supported");
 }
 
 static void
 ec_emitIfFalseGoto(cg_Backend* backend, cg_Var* var, cg_Label* label)
 {
 	ec_Context* c = ec_getContext(backend);	
+	moveVarToReg(c, ec_RAX, var);
+	e_test_al_imm8(c, 0xffu);
+	e_jz_rel(c, 0);
+	addLabelRef(c, label, (c->streamCursor - c->stream) - sizeof(i32));
 }
 
 static void
 ec_emitGoto(cg_Backend* backend, cg_Label* label)
 {
 	ec_Context* c = ec_getContext(backend);	
+	e_jmp_rel(c, 0);
+	addLabelRef(c, label, (c->streamCursor - c->stream) - sizeof(i32));
 }
 
 static void
@@ -479,6 +583,7 @@ ec_finalize(cg_Backend* backend)
 	ec_Context* c = ec_getContext(backend);	
 	c->machineCode->codeSize = (u32)(c->streamCursor - c->stream);
 	patchStackSize(c);
+	fixupLabelRefs(c);
 }
 
 /******************************************************************************/
@@ -503,6 +608,10 @@ ec_newCCodeBackend(mem_Allocator* allocator, mc_MachineCode* mc)
 	c->stackSize = 8; /* Caller pushes return address, so need to align to 16 bytes stack */
 	c->stackSizePatch[0] = 0;
 	c->stackSizePatch[1] = 0;
+	
+	ct_fixArrayInit(&c->labels);
+	ct_fixArrayInit(&c->labelOffsets);
+	ct_fixArrayInit(&c->labelRefs);
 
 	c->machineCode = mc;
 	mc->codeOffset = (u32)sizeof(mc_MachineCode);

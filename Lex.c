@@ -27,7 +27,8 @@ static void nextChar(lex_Context* c)
 static void prevChar(lex_Context* c)
 {
 	assert(c->sourceCodeCursor != c->sourceCodeBegin);
-	if (c->sourceCodeCursor != c->sourceCodeEnd) /* Stick to EOF */
+	/* Stick to EOF */
+	if (c->c != -1)
 		--c->sourceCodeCursor;
 }
 
@@ -83,6 +84,9 @@ lex_Context* lex_initContext(lex_Context* c, const char* sourceCode, size_t sour
 
 int lex_nextToken(lex_Context* c)
 {
+	if (c->sourceCodeCursor == c->sourceCodeEnd) 
+		return token(c, tokEOF);
+	
 	nextChar(c);
 	if (c->c == '_' || isalpha(c->c)) {
 		const char* idBegin = c->sourceCodeCursor - 1;

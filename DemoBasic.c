@@ -290,6 +290,7 @@ static void parseStm(demobasic_Context* c)
 		skip(c);
 		expr = parseExpression(c);
 		skipToken(c, tokTHEN);
+		skip(c);
 		if (getToken(c) == tokNEWLINE) {
 			lex_nextToken(&c->lex);
 			skip(c);
@@ -320,6 +321,8 @@ static void parseStm(demobasic_Context* c)
 		}
 
 	} else if (getToken(c) == tokNEWLINE) { /* empty line */
+		lex_nextToken(&c->lex);
+		skip(c);
 	} else {
 		parseError(c);
 	}
@@ -334,9 +337,10 @@ static void parseStmLine(demobasic_Context* c)
 
 static void parseBody(demobasic_Context* c, int endToken1, int endToken2)
 {
+	skip(c);
 	while (getToken(c) != endToken1 && getToken(c) != endToken2) {
-		skip(c);
 		parseStmLine(c);
+		skip(c);
 	}
 }
 

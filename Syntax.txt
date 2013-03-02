@@ -33,3 +33,33 @@ term2:		* term1 | / term1 | % term1 | <empty>
 
 factor:		const | var | (exp1) | -factor | not exp1
 
+
+/////// Interesting templates
+Basic4GL
+	- "pointers", structs, arrays
+
+FreeBasic
+	- Well documented, full type system, pointers, .bi-files for ffi with C code
+
+///////
+
+a = ""
+b = 0.0
+c = 1
+a(2) = ("Jonas", "Test")
+c(5) = (1, 2, 3, 4, 5)
+b(5) = 0.0 
+d(5) = ""        ' ("", "", "", "", "")
+
+
+type test
+	a = ""
+	b = 0.0
+	c = 1
+endtype
+
+k = type test
+k(2) = type test
+k.a = "Hej"
+k.b = 6.0
+
