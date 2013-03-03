@@ -1,5 +1,5 @@
 	a = 0 
-	b = 10
+#b = 10
 :loop
 	a = a + 1
 	if a < 40000000 then goto loop
