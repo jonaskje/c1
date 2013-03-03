@@ -1,4 +1,4 @@
-#include "EmitC.h"
+#include "EmitX64.h"
 #include "CodeGenInternal.h"
 #include "Memory.h"
 #include "Container.h"
@@ -13,34 +13,34 @@
 /******************************************************************************/
 
 /* An item on a function's stack */
-typedef struct ec_StackEntry ec_StackEntry;
-struct ec_StackEntry
+typedef struct x64_StackEntry x64_StackEntry;
+struct x64_StackEntry
 {
 	cg_Var* var;
 	i32 offset;	/* Offset relative RSP */
 	size_t size;	/* Size of entry */
 };
 
-typedef struct ec_LabelRef ec_LabelRef;
-struct ec_LabelRef
+typedef struct x64_LabelRef x64_LabelRef;
+struct x64_LabelRef
 {
 	const cg_Label* label;		/* The referenced label */
 	u32 offset;			/* Offset of reference in generated code */
 };
 
-#define ec_MAX_LABELS 1000
-#define ec_MAX_LABEL_REFS 2000
+#define x64_MAX_LABELS 1000
+#define x64_MAX_LABEL_REFS 2000
 
-typedef struct ec_Context ec_Context;
-struct ec_Context 
+typedef struct x64_Context x64_Context;
+struct x64_Context 
 {
 	cg_Backend backend; /* Must be the first member */
 	mem_Allocator* allocator;
-	ct_FixArray(ec_StackEntry, 256) stackEntries;
+	ct_FixArray(x64_StackEntry, 256) stackEntries;
 
-	ct_FixArray(const cg_Label*, ec_MAX_LABELS) labels;
-	ct_FixArray(size_t, ec_MAX_LABELS) labelOffsets;
-	ct_FixArray(ec_LabelRef, ec_MAX_LABEL_REFS) labelRefs;
+	ct_FixArray(const cg_Label*, x64_MAX_LABELS) labels;
+	ct_FixArray(size_t, x64_MAX_LABELS) labelOffsets;
+	ct_FixArray(x64_LabelRef, x64_MAX_LABEL_REFS) labelRefs;
 
 	size_t stackSize;
 	u8* stackSizePatch[2];
@@ -50,28 +50,28 @@ struct ec_Context
 	u8* streamEnd;
 };
 
-#define ec_getContext(be) ((ec_Context*)(be))
+#define x64_getContext(be) ((x64_Context*)(be))
 
 /******************************************************************************/
 
-#define ec_RAX ((u8)0x0u)
-#define ec_RCX ((u8)0x1u)
-#define ec_RDX ((u8)0x2u)
-#define ec_RBX ((u8)0x3u)
-#define ec_RSP ((u8)0x4u)
-#define ec_RBP ((u8)0x5u)
-#define ec_RSI ((u8)0x6u)
-#define ec_RDI ((u8)0x7u)
-#define ec_R8  ((u8)0x8u)
-#define ec_R9  ((u8)0x9u)
-#define ec_R10 ((u8)0xAu)
-#define ec_R11 ((u8)0xBu)
-#define ec_R12 ((u8)0xCu)
-#define ec_R13 ((u8)0xDu)
-#define ec_R14 ((u8)0xEu)
-#define ec_R15 ((u8)0xFu)
+#define x64_RAX ((u8)0x0u)
+#define x64_RCX ((u8)0x1u)
+#define x64_RDX ((u8)0x2u)
+#define x64_RBX ((u8)0x3u)
+#define x64_RSP ((u8)0x4u)
+#define x64_RBP ((u8)0x5u)
+#define x64_RSI ((u8)0x6u)
+#define x64_RDI ((u8)0x7u)
+#define x64_R8  ((u8)0x8u)
+#define x64_R9  ((u8)0x9u)
+#define x64_R10 ((u8)0xAu)
+#define x64_R11 ((u8)0xBu)
+#define x64_R12 ((u8)0xCu)
+#define x64_R13 ((u8)0xDu)
+#define x64_R14 ((u8)0xEu)
+#define x64_R15 ((u8)0xFu)
 
-#define ec_REX_W ((u8)0x48u)
+#define x64_REX_W ((u8)0x48u)
 
 static void
 writei32(u8* s, i32 v)
@@ -99,14 +99,14 @@ writei64(u8* s, i64 v)
 }
 
 static void
-put(ec_Context* c, u8 b)
+put(x64_Context* c, u8 b)
 {
 	assert(c->streamCursor < c->streamEnd);
 	*c->streamCursor++ = b;
 }
 
 static void
-puti32(ec_Context* c, i32 b)
+puti32(x64_Context* c, i32 b)
 {
 	assert(c->streamCursor + sizeof(b) <= c->streamEnd);
 	writei32(c->streamCursor, b);
@@ -114,7 +114,7 @@ puti32(ec_Context* c, i32 b)
 }
 
 static void
-puti64(ec_Context* c, i64 b)
+puti64(x64_Context* c, i64 b)
 {
 	assert(c->streamCursor + sizeof(b) <= c->streamEnd);
 	writei64(c->streamCursor, b);
@@ -122,21 +122,21 @@ puti64(ec_Context* c, i64 b)
 }
 
 static void
-put2(ec_Context* c, u8 b0, u8 b1)
+put2(x64_Context* c, u8 b0, u8 b1)
 {
 	put(c, b0);
 	put(c, b1);
 }
 
 static void
-put3(ec_Context* c, u8 b0, u8 b1, u8 b2)
+put3(x64_Context* c, u8 b0, u8 b1, u8 b2)
 {
 	put2(c, b0, b1);
 	put(c, b2);
 }
 
 static void
-put4(ec_Context* c, u8 b0, u8 b1, u8 b2, u8 b3)
+put4(x64_Context* c, u8 b0, u8 b1, u8 b2, u8 b3)
 {
 	put2(c, b0, b1);
 	put2(c, b2, b3);
@@ -183,52 +183,52 @@ modrmDisp32(u8 r, u8 rm)
 }
 	
 static void 
-e_pushReg(ec_Context* c, u8 reg)	
+e_pushReg(x64_Context* c, u8 reg)	
 { 
 	put(c, 0x50u+reg); 
 }
 
 static void 
-e_popReg(ec_Context* c, u8 reg)	
+e_popReg(x64_Context* c, u8 reg)	
 { 
 	put(c, 0x58u+reg); 
 }
 
 static void 
-e_ret(ec_Context* c)		
+e_ret(x64_Context* c)		
 { 
 	put(c, 0xc3u); 
 }
 
 static void 
-e_mov_r64_r64(ec_Context* c, u8 rm64, u8 r64)		
+e_mov_r64_r64(x64_Context* c, u8 rm64, u8 r64)		
 { 
 	put3(c, rexW(r64, rm64), 0x89u, modrmReg(r64, rm64)); 
 }
 
 static void 
-e_mov_m64_r64(ec_Context* c, u8 rm64, i32 offset, u8 r64)		
+e_mov_m64_r64(x64_Context* c, u8 rm64, i32 offset, u8 r64)		
 { 
 	put3(c, rexW(r64, rm64), 0x89u, modrmDisp32(r64, rm64)); 
 	puti32(c, offset);
 }
 
 static void 
-e_mov_r64_m64(ec_Context* c, u8 r64, u8 rm64, i32 offset)		
+e_mov_r64_m64(x64_Context* c, u8 r64, u8 rm64, i32 offset)		
 { 
 	put3(c, rexW(r64, rm64), 0x8bu, modrmDisp32(r64, rm64)); 
 	puti32(c, offset);
 }
 
 static void 
-e_mov_r64_imm64(ec_Context* c, u8 rm64, i64 imm64)		
+e_mov_r64_imm64(x64_Context* c, u8 rm64, i64 imm64)		
 { 
 	put2(c, rexW(0, rm64), 0xb8u + (rm64 & 0x7u)); 
 	puti64(c, imm64);
 }
 
 static void
-e_sub_r64_imm32(ec_Context* c, u8 rm64, i32 imm32)
+e_sub_r64_imm32(x64_Context* c, u8 rm64, i32 imm32)
 {
 	/* REX.W + 81 /5 id */
 	put3(c, rexW(0, rm64), 0x81u, modrmReg(5, rm64)); 
@@ -236,7 +236,7 @@ e_sub_r64_imm32(ec_Context* c, u8 rm64, i32 imm32)
 }
 
 static void
-e_add_r64_imm32(ec_Context* c, u8 rm64, i32 imm32)
+e_add_r64_imm32(x64_Context* c, u8 rm64, i32 imm32)
 {
 	/* REX.W + 81 /0 id */
 	put3(c, rexW(0, rm64), 0x81u, modrmReg(0, rm64)); 
@@ -244,20 +244,20 @@ e_add_r64_imm32(ec_Context* c, u8 rm64, i32 imm32)
 }
 
 static void
-e_sub_r64_r64(ec_Context* c, u8 r1, u8 r2)
+e_sub_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	/* REX.W + 2B /r */
 	put3(c, rexW(r1, r2), 0x2bu, modrmReg(r1, r2)); 
 }
 
 static void
-e_add_r64_r64(ec_Context* c, u8 r1, u8 r2)
+e_add_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	put3(c, rexW(r1, r2), 0x03u, modrmReg(r1, r2)); 
 }
 
 static void
-e_imul_r64_r64(ec_Context* c, u8 r1, u8 r2)
+e_imul_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	/* Signed multiplication */
 	/* REX.W + 0F AF /r */
@@ -265,56 +265,56 @@ e_imul_r64_r64(ec_Context* c, u8 r1, u8 r2)
 }
 
 static void
-e_idiv_r64(ec_Context* c, u8 r1)
+e_idiv_r64(x64_Context* c, u8 r1)
 {
 	/* REX.W + F7 /7 */
 	put3(c, rexW(0, r1), 0xf7u, modrmReg(7, r1)); 
 }
 
 static void
-e_xor_r64_r64(ec_Context* c, u8 r1, u8 r2)
+e_xor_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	/* REX.W + 33 /r */
 	put3(c, rexW(r1, r2), 0x33u, modrmReg(r1, r2));
 }
 
 static void
-e_and_r64_r64(ec_Context* c, u8 r1, u8 r2)
+e_and_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	/* REX.W + 23 /r */
 	put3(c, rexW(r1, r2), 0x23u, modrmReg(r1, r2));
 }
 
 static void
-e_or_r64_r64(ec_Context* c, u8 r1, u8 r2)
+e_or_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	/* REX.W + 0B /r */
 	put3(c, rexW(r1, r2), 0x0bu, modrmReg(r1, r2));
 }
 
 static void
-e_not_r64(ec_Context* c, u8 reg)
+e_not_r64(x64_Context* c, u8 reg)
 {
 	/* REX.W + F7 /2 */
 	put3(c, rexW(0, reg), 0xf7u, modrmReg(2, reg)); 
 }
 
 static void
-e_jz_rel(ec_Context* c, i32 relAddr)
+e_jz_rel(x64_Context* c, i32 relAddr)
 {
 	put2(c, 0x0fu, 0x84u);
 	puti32(c, relAddr);
 }
 
 static void
-e_jmp_rel(ec_Context* c, i32 relAddr)
+e_jmp_rel(x64_Context* c, i32 relAddr)
 {
 	put(c, 0xe9u);
 	puti32(c, relAddr);
 }
 
 static void
-e_logicalCmp_rax_r64(ec_Context* c, u8 reg, cg_BinOp op)
+e_logicalCmp_rax_r64(x64_Context* c, u8 reg, cg_BinOp op)
 {
 	/*
 	cmp	%rax, %reg		REX.W + 39 /r
@@ -322,22 +322,22 @@ e_logicalCmp_rax_r64(ec_Context* c, u8 reg, cg_BinOp op)
 	andb	%al, $1			24 ib
 	movzbl	%rax, %al		REX.W + 0F B6 /r
 	*/
-	put3(c, rexW(reg, ec_RAX), 0x39u, modrmReg(reg, ec_RAX));
+	put3(c, rexW(reg, x64_RAX), 0x39u, modrmReg(reg, x64_RAX));
 	switch (op) {
-	case cg_NE: put3(c, 0x0fu, 0x95u, modrmReg(0, ec_RAX)); break;
-	case cg_EQ: put3(c, 0x0fu, 0x94u, modrmReg(0, ec_RAX)); break;
-	case cg_LE: put3(c, 0x0fu, 0x9eu, modrmReg(0, ec_RAX)); break;
-	case cg_GE: put3(c, 0x0fu, 0x9du, modrmReg(0, ec_RAX)); break;
-	case cg_LT: put3(c, 0x0fu, 0x9cu, modrmReg(0, ec_RAX)); break;
-	case cg_GT: put3(c, 0x0fu, 0x9fu, modrmReg(0, ec_RAX)); break;
+	case cg_NE: put3(c, 0x0fu, 0x95u, modrmReg(0, x64_RAX)); break;
+	case cg_EQ: put3(c, 0x0fu, 0x94u, modrmReg(0, x64_RAX)); break;
+	case cg_LE: put3(c, 0x0fu, 0x9eu, modrmReg(0, x64_RAX)); break;
+	case cg_GE: put3(c, 0x0fu, 0x9du, modrmReg(0, x64_RAX)); break;
+	case cg_LT: put3(c, 0x0fu, 0x9cu, modrmReg(0, x64_RAX)); break;
+	case cg_GT: put3(c, 0x0fu, 0x9fu, modrmReg(0, x64_RAX)); break;
 	default: assert(0);
 	}
 	put2(c, 0x24u, 0x01u);
-	put4(c, rexW(ec_RAX, 0), 0x0fu, 0xb6u, modrmReg(ec_RAX, 0)); 
+	put4(c, rexW(x64_RAX, 0), 0x0fu, 0xb6u, modrmReg(x64_RAX, 0)); 
 }
 
 static void
-e_test_rm64_imm32(ec_Context* c, u8 r1, i32 imm32)
+e_test_rm64_imm32(x64_Context* c, u8 r1, i32 imm32)
 {
 	/* REX.W + F7 /0 id */
 	put3(c, rexW(0, r1), 0xf7u, modrmReg(0, r1)); 
@@ -346,10 +346,10 @@ e_test_rm64_imm32(ec_Context* c, u8 r1, i32 imm32)
 
 /******************************************************************************/
 
-static ec_StackEntry*
-findStackEntry(ec_Context* c, cg_Var* var)
+static x64_StackEntry*
+findStackEntry(x64_Context* c, cg_Var* var)
 {
-	ec_StackEntry* it;
+	x64_StackEntry* it;
 	ct_fixArrayForEach(&c->stackEntries, it) {
 		if (it->var == var)
 			return it;
@@ -363,17 +363,17 @@ getTempReg(cg_Var* var)
 	assert(var->kind == cg_TempVariable);
 	/* Allowing at most 7 temp variables. r15 is reserved for operations. */
 	assert(var->v.i >= 0 && var->v.i < 7);
-	return ec_R8 + var->v.i;
+	return x64_R8 + var->v.i;
 }
 
 static void
-rememberStackSizePatch(ec_Context* c, int index)
+rememberStackSizePatch(x64_Context* c, int index)
 {
 	c->stackSizePatch[index] = c->streamCursor - sizeof(i32);
 }
 
 static void
-patchStackSize(ec_Context* c)
+patchStackSize(x64_Context* c)
 {
 	if (c->stackSizePatch[0])
 	       writei32(c->stackSizePatch[0], (i32)c->stackSize);
@@ -382,7 +382,7 @@ patchStackSize(ec_Context* c)
 }
 
 static void
-moveVarToReg(ec_Context* c, u8 reg, cg_Var* var)
+moveVarToReg(x64_Context* c, u8 reg, cg_Var* var)
 {
 	switch(var->kind) {
 	case cg_Constant:
@@ -390,9 +390,9 @@ moveVarToReg(ec_Context* c, u8 reg, cg_Var* var)
 		e_mov_r64_imm64(	c, reg, var->v.i);
 		break;
 	case cg_Variable: {
-		ec_StackEntry* varStackEntry = findStackEntry(c, var);
+		x64_StackEntry* varStackEntry = findStackEntry(c, var);
 		assert(varStackEntry);
-		e_mov_r64_m64(		c, reg, ec_RBP, varStackEntry->offset);
+		e_mov_r64_m64(		c, reg, x64_RBP, varStackEntry->offset);
 	}
 		break;
 	case cg_TempVariable:
@@ -405,13 +405,13 @@ moveVarToReg(ec_Context* c, u8 reg, cg_Var* var)
 }
 
 static void
-moveRegToVar(ec_Context* c, cg_Var* var, u8 reg)
+moveRegToVar(x64_Context* c, cg_Var* var, u8 reg)
 {
 	switch(var->kind) {
 	case cg_Variable: {
-		ec_StackEntry* varStackEntry = findStackEntry(c, var);
+		x64_StackEntry* varStackEntry = findStackEntry(c, var);
 		assert(varStackEntry);
-		e_mov_m64_r64(		c, ec_RBP, varStackEntry->offset, reg);
+		e_mov_m64_r64(		c, x64_RBP, varStackEntry->offset, reg);
 	}
 		break;
 	case cg_TempVariable:
@@ -425,7 +425,7 @@ moveRegToVar(ec_Context* c, cg_Var* var, u8 reg)
 }
 
 static void
-addLabel(ec_Context* c, const cg_Label* label)
+addLabel(x64_Context* c, const cg_Label* label)
 {
 	const cg_Label** labelIterator;
 	size_t offset;
@@ -442,16 +442,16 @@ addLabel(ec_Context* c, const cg_Label* label)
 }
 
 static void
-addLabelRef(ec_Context* c, const cg_Label* label, size_t referenceOffset)
+addLabelRef(x64_Context* c, const cg_Label* label, size_t referenceOffset)
 {
-	const ec_LabelRef ref = { label, referenceOffset };
+	const x64_LabelRef ref = { label, referenceOffset };
 	ct_fixArrayPushBack(&c->labelRefs, &ref);
 }
 
 static void
-fixupLabelRefs(ec_Context* c)
+fixupLabelRefs(x64_Context* c)
 {
-	ec_LabelRef* refIterator;
+	x64_LabelRef* refIterator;
 	i32 relOffs;
 	ct_fixArrayForEach(&c->labelRefs, refIterator) {
 		const cg_Label** labelIterator;
@@ -476,48 +476,48 @@ fixupLabelRefs(ec_Context* c)
 /******************************************************************************/
 
 static void 
-ec_emitLabel(cg_Backend* backend, cg_Label* label)
+x64_emitLabel(cg_Backend* backend, cg_Label* label)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 	addLabel(c, label);
 }
 
 static void 
-ec_emitBeginFunc(cg_Backend* backend, cg_Label* label)
+x64_emitBeginFunc(cg_Backend* backend, cg_Label* label)
 {
-	ec_Context* c = ec_getContext(backend);	
-	e_pushReg(		c, ec_RBP);
-	e_mov_r64_r64(		c, ec_RBP, ec_RSP);
-	e_sub_r64_imm32(	c, ec_RSP, 0);
+	x64_Context* c = x64_getContext(backend);	
+	e_pushReg(		c, x64_RBP);
+	e_mov_r64_r64(		c, x64_RBP, x64_RSP);
+	e_sub_r64_imm32(	c, x64_RSP, 0);
 	rememberStackSizePatch(c, 0);
 }
 
 static void
-ec_emitEndFunc(cg_Backend* backend)
+x64_emitEndFunc(cg_Backend* backend)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 	/* Temp: Move the first variable to rax */
 	if (ct_fixArraySize(&c->stackEntries) > 0) {
-		ec_StackEntry* entry = ct_fixArrayItem(&c->stackEntries, 0);
+		x64_StackEntry* entry = ct_fixArrayItem(&c->stackEntries, 0);
 		assert(entry->var->type == cg_Int);
-		e_mov_r64_m64(		c, ec_RAX, ec_RBP, entry->offset);
+		e_mov_r64_m64(		c, x64_RAX, x64_RBP, entry->offset);
 	}
-	e_add_r64_imm32(	c, ec_RSP, 0);
+	e_add_r64_imm32(	c, x64_RSP, 0);
 	rememberStackSizePatch(c, 1);
-	e_popReg(		c, ec_RBP);
+	e_popReg(		c, x64_RBP);
 	e_ret(c);	
 }
 
 static void
-ec_emitAssign(cg_Backend* backend, cg_Var* result, cg_Var* var)
+x64_emitAssign(cg_Backend* backend, cg_Var* result, cg_Var* var)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 	assert(var->type == cg_Int);
 	assert(result->type == cg_Int);
 	assert(result->kind == cg_Variable || result->kind == cg_TempVariable);
 
 	if (result->kind == cg_Variable) {
-		ec_StackEntry* stackEntry = findStackEntry(c, result);
+		x64_StackEntry* stackEntry = findStackEntry(c, result);
 		if (!stackEntry) {
 			ct_fixArrayPushBackRaw(&c->stackEntries);
 			stackEntry = ct_fixArrayLast(&c->stackEntries);
@@ -527,24 +527,24 @@ ec_emitAssign(cg_Backend* backend, cg_Var* result, cg_Var* var)
 			c->stackSize += stackEntry->size;
 		} 
 		if (var->kind == cg_Constant) {
-			e_mov_r64_imm64(	c, ec_RAX, var->v.i);
-			e_mov_m64_r64(		c, ec_RBP, stackEntry->offset, ec_RAX);
+			e_mov_r64_imm64(	c, x64_RAX, var->v.i);
+			e_mov_m64_r64(		c, x64_RBP, stackEntry->offset, x64_RAX);
 		} else if (var->kind == cg_Variable) {
-			ec_StackEntry* varStackEntry = findStackEntry(c, var);
+			x64_StackEntry* varStackEntry = findStackEntry(c, var);
 			assert(varStackEntry);
-			e_mov_r64_m64(		c, ec_RAX, ec_RBP, varStackEntry->offset);
-			e_mov_m64_r64(		c, ec_RBP, stackEntry->offset, ec_RAX);
+			e_mov_r64_m64(		c, x64_RAX, x64_RBP, varStackEntry->offset);
+			e_mov_m64_r64(		c, x64_RBP, stackEntry->offset, x64_RAX);
 		} else {
 			assert(var->kind == cg_TempVariable);
-			e_mov_m64_r64(		c, ec_RBP, stackEntry->offset, getTempReg(var));
+			e_mov_m64_r64(		c, x64_RBP, stackEntry->offset, getTempReg(var));
 		}
 	} else {
 		if (var->kind == cg_Constant) {
 			e_mov_r64_imm64(	c, getTempReg(result), (i64)var->v.i);
 		} else if (var->kind == cg_Variable) {
-			ec_StackEntry* varStackEntry = findStackEntry(c, var);
+			x64_StackEntry* varStackEntry = findStackEntry(c, var);
 			assert(varStackEntry);
-			e_mov_r64_m64(		c, getTempReg(result), ec_RBP, varStackEntry->offset);
+			e_mov_r64_m64(		c, getTempReg(result), x64_RBP, varStackEntry->offset);
 		} else {
 			assert(var->kind == cg_TempVariable);
 			e_mov_r64_r64(		c, getTempReg(result), getTempReg(var));
@@ -553,9 +553,9 @@ ec_emitAssign(cg_Backend* backend, cg_Var* result, cg_Var* var)
 }
 
 static void
-ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_Var* var2)
+x64_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_Var* var2)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 
 	/*
 	mov rax, <var1>
@@ -563,24 +563,24 @@ ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_
 	mov <result>, rax
 	*/
 
-	moveVarToReg(c, ec_RAX, var1);
-	moveVarToReg(c, ec_R15, var2);
+	moveVarToReg(c, x64_RAX, var1);
+	moveVarToReg(c, x64_R15, var2);
 
 	/* <binop> rax, <var2> */
 	switch(op) {
-	case cg_PLUS:		e_add_r64_r64(		c, ec_RAX, ec_R15);	break;
-	case cg_MINUS:		e_sub_r64_r64(		c, ec_RAX, ec_R15);	break;
-	case cg_MULT:		e_imul_r64_r64(		c, ec_RAX, ec_R15);	break;
+	case cg_PLUS:		e_add_r64_r64(		c, x64_RAX, x64_R15);	break;
+	case cg_MINUS:		e_sub_r64_r64(		c, x64_RAX, x64_R15);	break;
+	case cg_MULT:		e_imul_r64_r64(		c, x64_RAX, x64_R15);	break;
 	
 	case cg_DIV:
-				e_xor_r64_r64(		c, ec_RDX, ec_RDX);
-				e_idiv_r64(		c, ec_R15);	
+				e_xor_r64_r64(		c, x64_RDX, x64_RDX);
+				e_idiv_r64(		c, x64_R15);	
 				break;
 	
 	case cg_MOD:
-				e_xor_r64_r64(		c, ec_RDX, ec_RDX);
-				e_idiv_r64(		c, ec_R15);	
-				e_mov_r64_r64(		c, ec_RAX, ec_RDX); /* Remainder in RDX */
+				e_xor_r64_r64(		c, x64_RDX, x64_RDX);
+				e_idiv_r64(		c, x64_R15);	
+				e_mov_r64_r64(		c, x64_RAX, x64_RDX); /* Remainder in RDX */
 				break;
 
 	case cg_EQ:
@@ -589,46 +589,46 @@ ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_
 	case cg_LT:
 	case cg_LE:
 	case cg_GE:
-				e_logicalCmp_rax_r64(	c, ec_R15, op);	
+				e_logicalCmp_rax_r64(	c, x64_R15, op);	
 				break;
 
-	case cg_AND:		e_and_r64_r64(		c, ec_RAX, ec_R15);	break;
-	case cg_OR:		e_or_r64_r64(		c, ec_RAX, ec_R15);	break;
+	case cg_AND:		e_and_r64_r64(		c, x64_RAX, x64_R15);	break;
+	case cg_OR:		e_or_r64_r64(		c, x64_RAX, x64_R15);	break;
 	default: assert(0);
 	}
 	
-	moveRegToVar(c, result, ec_RAX);
+	moveRegToVar(c, result, x64_RAX);
 }
 
 static void
-ec_emitUnaryOp(cg_Backend* backend, cg_Var* result, cg_UnaryOp op, cg_Var* var)
+x64_emitUnaryOp(cg_Backend* backend, cg_Var* result, cg_UnaryOp op, cg_Var* var)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 	assert(0 && "Unary not supported");
 }
 
 static void
-ec_emitIfFalseGoto(cg_Backend* backend, cg_Var* var, cg_Label* label)
+x64_emitIfFalseGoto(cg_Backend* backend, cg_Var* var, cg_Label* label)
 {
-	ec_Context* c = ec_getContext(backend);	
-	moveVarToReg(c, ec_RAX, var);
-	e_test_rm64_imm32(c, ec_RAX, -1);
+	x64_Context* c = x64_getContext(backend);	
+	moveVarToReg(c, x64_RAX, var);
+	e_test_rm64_imm32(c, x64_RAX, -1);
 	e_jz_rel(c, 0);
 	addLabelRef(c, label, (c->streamCursor - c->stream) - sizeof(i32));
 }
 
 static void
-ec_emitGoto(cg_Backend* backend, cg_Label* label)
+x64_emitGoto(cg_Backend* backend, cg_Label* label)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 	e_jmp_rel(c, 0);
 	addLabelRef(c, label, (c->streamCursor - c->stream) - sizeof(i32));
 }
 
 static void
-ec_finalize(cg_Backend* backend)
+x64_finalize(cg_Backend* backend)
 {
-	ec_Context* c = ec_getContext(backend);	
+	x64_Context* c = x64_getContext(backend);	
 	c->machineCode->codeSize = (u32)(c->streamCursor - c->stream);
 	patchStackSize(c);
 	fixupLabelRefs(c);
@@ -638,19 +638,19 @@ ec_finalize(cg_Backend* backend)
 
 
 cg_Backend*
-ec_newCCodeBackend(mem_Allocator* allocator, mc_MachineCode* mc)
+x64_newBackend(mem_Allocator* allocator, mc_MachineCode* mc)
 {
-	ec_Context* c = (ec_Context*)(allocator->allocMem)(sizeof(ec_Context));
+	x64_Context* c = (x64_Context*)(allocator->allocMem)(sizeof(x64_Context));
 	cg_Backend* be = &c->backend;
-	be->emitLabel = ec_emitLabel;
-	be->emitBeginFunc = ec_emitBeginFunc;
-	be->emitEndFunc = ec_emitEndFunc;
-	be->emitAssign = ec_emitAssign;
-	be->emitBinOp = ec_emitBinOp;
-	be->emitUnaryOp = ec_emitUnaryOp;
-	be->emitIfFalseGoto = ec_emitIfFalseGoto;
-	be->emitGoto = ec_emitGoto;
-	be->finalize = ec_finalize;
+	be->emitLabel = x64_emitLabel;
+	be->emitBeginFunc = x64_emitBeginFunc;
+	be->emitEndFunc = x64_emitEndFunc;
+	be->emitAssign = x64_emitAssign;
+	be->emitBinOp = x64_emitBinOp;
+	be->emitUnaryOp = x64_emitUnaryOp;
+	be->emitIfFalseGoto = x64_emitIfFalseGoto;
+	be->emitGoto = x64_emitGoto;
+	be->finalize = x64_finalize;
 	c->allocator = allocator;
 	ct_fixArrayInit(&c->stackEntries);
 	c->stackSize = 8; /* Caller pushes return address, so need to align to 16 bytes stack */

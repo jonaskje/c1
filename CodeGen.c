@@ -2,7 +2,7 @@
 #include "CodeGenInternal.h"
 #include "Lex.h"
 #include "Container.h"
-#include "EmitC.h"
+#include "EmitX64.h"
 #include "MachineCode.h"
 #include <stdio.h>
 #include <string.h>
@@ -51,7 +51,7 @@ cg_newContext(mem_Allocator* allocator, mc_MachineCode* mc)
 	ct_fixArrayInit(&c->vars);
 	c->tempVariableId = 0;
 	c->tempLabelId = 0;
-	c->backend = ec_newCCodeBackend(allocator, mc);
+	c->backend = x64_newBackend(allocator, mc);
 	return c;
 }
 
