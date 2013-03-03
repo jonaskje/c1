@@ -377,8 +377,7 @@ static void parseStm(demobasic_Context* c)
 		}
 
 	} else if (getToken(c) == tokNEWLINE) { /* empty line */
-		lex_nextToken(&c->lex);
-		skip(c);
+		/* Do nothing here. Handled by parseStmLine */
 	} else if (getToken(c) == tokCOLON) { /* label */
 		eatToken(c);
 		expectToken(c, tokID);

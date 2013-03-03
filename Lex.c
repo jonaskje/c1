@@ -111,57 +111,60 @@ int lex_nextToken(lex_Context* c)
 		}
 		return token(c, tokERROR_NUMCONST_OVERFLOW);
 	}
-	switch(c->c) {
-	case -1  : return token(c, tokEOF);
-	case '\r': /* Fall through */
-	case '\n':
-		   for(;;) {
-			   nextChar(c);
-			   if (c->c != '\r' && c->c != '\n') {
-				   prevChar(c);
-				   break;
+	for (;;)
+	{
+		switch(c->c) {
+		case -1  : return token(c, tokEOF);
+		case '\r': /* Fall through */
+		case '\n':
+			   for(;;) {
+				   nextChar(c);
+				   if (c->c != '\r' && c->c != '\n') {
+					   prevChar(c);
+					   break;
+				   }
 			   }
-		   }
-		   return token(c, tokNEWLINE);
-	case '+' : return token(c, tokPLUS);
-	case '-' : return token(c, tokMINUS);
-	case '*' : return token(c, tokMULT);
-	case '/' : return token(c, tokDIV);
-	case '%' : return token(c, tokMOD);
-	case '&' : return token(c, tokAND);
-	case '|' : return token(c, tokOR);
-	case '=' : return token(c, tokEQ);
-	case '<' :
-		   nextChar(c);
-		   if (c->c == '>')
-			   return token(c, tokNE);
-		   else if (c->c == '=')
-			   return token(c, tokLE);
-		   else
-			   prevChar(c);
-		   return token(c, tokLT);
-	case '>' :
-		   nextChar(c);
-		   if (c->c == '=')
-			   return token(c, tokGE);
-		   else
-			   prevChar(c);
-		   return token(c, tokGT);
-	case ' ' : return token(c, tokWHITE);
-	case '\t': return token(c, tokWHITE);
-	case '(' : return token(c, tokLPAR);
-	case ')' : return token(c, tokRPAR);
-	case ':' : return token(c, tokCOLON);
-	case '#' : /* comment */
-		   for(;;) {
+			   return token(c, tokNEWLINE);
+		case '+' : return token(c, tokPLUS);
+		case '-' : return token(c, tokMINUS);
+		case '*' : return token(c, tokMULT);
+		case '/' : return token(c, tokDIV);
+		case '%' : return token(c, tokMOD);
+		case '&' : return token(c, tokAND);
+		case '|' : return token(c, tokOR);
+		case '=' : return token(c, tokEQ);
+		case '<' :
 			   nextChar(c);
-			   if (c->c == '\n' || c->c == -1) {
+			   if (c->c == '>')
+				   return token(c, tokNE);
+			   else if (c->c == '=')
+				   return token(c, tokLE);
+			   else
 				   prevChar(c);
-				   break;
+			   return token(c, tokLT);
+		case '>' :
+			   nextChar(c);
+			   if (c->c == '=')
+				   return token(c, tokGE);
+			   else
+				   prevChar(c);
+			   return token(c, tokGT);
+		case ' ' : return token(c, tokWHITE);
+		case '\t': return token(c, tokWHITE);
+		case '(' : return token(c, tokLPAR);
+		case ')' : return token(c, tokRPAR);
+		case ':' : return token(c, tokCOLON);
+		case '#' : /* comment */
+			   for(;;) {
+				   nextChar(c);
+				   if (c->c == '\n' || c->c == -1) {
+					   prevChar(c);
+					   break;
+				   }
 			   }
-		   }
-		   return token(c, tokWHITE);
-	default  : return token(c, tokERROR_ILLEGAL_CHARACTER);		   
-	}	
+			   break;
+		default  : return token(c, tokERROR_ILLEGAL_CHARACTER);		   
+		}	
+	}
 }
 
