@@ -12,6 +12,14 @@ struct VarDecl
 	char id[lex_MAX_ID_LENGTH];
 };
 
+typedef struct Label Label;
+struct Label 
+{
+	int defined;
+	cg_Label* label;
+	char id[lex_MAX_ID_LENGTH];
+};
+
 typedef struct demobasic_Context demobasic_Context;
 struct demobasic_Context
 {
@@ -19,6 +27,7 @@ struct demobasic_Context
 	cg_Context* cg;
 	const mem_Allocator* allocator;
 	ct_FixArray(VarDecl, 1000) varDecls;
+	ct_FixArray(Label, 1000) labels;
 };
 
 
@@ -72,6 +81,56 @@ static VarDecl* findOrFailVarDecl(demobasic_Context* c, const char* id)
 	}
 }
 
+/************************************************************************/
+
+static cg_Label* _addLabel(demobasic_Context* c, const char* id, int defined)
+{
+	Label* it;
+	ct_fixArrayPushBackRaw(&c->labels);
+	it = ct_fixArrayLast(&c->labels);
+	strcpy(it->id, id);
+	it->label = cg_newLabel(c->cg, it->id);
+	it->defined = defined;
+	return it->label;
+}
+
+static cg_Label* referenceLabel(demobasic_Context* c, const char* id)
+{
+	Label* it;
+	ct_fixArrayForEach(&c->labels, it) {
+		if (0 == strcmp(id, it->id))
+			return it->label;
+	}
+	return _addLabel(c, id, 0);
+}
+
+static cg_Label* defineLabel(demobasic_Context* c, const char* id)
+{
+	Label* it;
+	ct_fixArrayForEach(&c->labels, it) {
+		if (0 == strcmp(id, it->id)) {
+			if (it->defined) {
+				parseError(c); /* Defined twice */
+			} else {
+				it->defined = 1;
+				return it->label;
+			}
+		}
+	}
+	return _addLabel(c, id, 1);
+}
+
+static void checkLabelReferences(demobasic_Context* c)
+{
+	Label* it;
+	ct_fixArrayForEach(&c->labels, it) {
+		if (!it->defined)
+			parseError(c); /* Referenced but not defined */
+	}
+}
+
+/************************************************************************/
+
 static void parseError(demobasic_Context* c)
 {
 	printf("Parse error at %3d:%3d\n", c->lex.line, c->lex.col);
@@ -83,30 +142,28 @@ static int getToken(demobasic_Context* c)
 	return c->lex.tok;
 }
 
-static void checkToken(demobasic_Context* c, int token)
+static void eatToken(demobasic_Context* c)
 {
-	if (c->lex.tok != token)
-		parseError(c);
-	lex_nextToken(&c->lex);
-}
-
-static void checkTokenId(demobasic_Context* c, const char* id)
-{
-	if (c->lex.tok != tokID || 0 != strcmp(id, c->lex.id))
-		parseError(c);
 	lex_nextToken(&c->lex);
 }
 
 static void skip(demobasic_Context* c)
 {
-	while (c->lex.tok == tokWHITE)
-		lex_nextToken(&c->lex);
+	while (getToken(c) == tokWHITE)
+		eatToken(c);
+}
+
+static void expectToken(demobasic_Context* c, int token)
+{
+	skip(c);
+	if (getToken(c) != token)
+		parseError(c);
 }
 
 static void skipToken(demobasic_Context* c, int token)
 {
-	skip(c);
-	checkToken(c, token);
+	expectToken(c, token);
+	eatToken(c);
 }
 
 static cg_Var* doBinaryOpNode(demobasic_Context* c, cg_Var* lhs, cg_Var* (rhsFunc)(demobasic_Context*), cg_BinOp op)
@@ -306,14 +363,13 @@ static void parseStm(demobasic_Context* c)
 				cg_emitLabel(c->cg, label1);
 				skipToken(c, tokNEWLINE);
 				parseBody(c, tokENDIF, tokDONTMATCH);
-				checkToken(c, tokENDIF);
+				skipToken(c, tokENDIF);
 				cg_emitLabel(c->cg, label2);
 			} else {
 				parseError(c);
 			}
 		} else {
 			/* Single line if */
-			lex_nextToken(&c->lex);
 			skip(c);
 			cg_emitIfFalseGoto(c->cg, expr, label1);
 			parseStm(c);
@@ -323,6 +379,16 @@ static void parseStm(demobasic_Context* c)
 	} else if (getToken(c) == tokNEWLINE) { /* empty line */
 		lex_nextToken(&c->lex);
 		skip(c);
+	} else if (getToken(c) == tokCOLON) { /* label */
+		eatToken(c);
+		expectToken(c, tokID);
+		cg_emitLabel(c->cg, defineLabel(c, c->lex.id));
+		eatToken(c);
+	} else if (getToken(c) == tokGOTO) {
+		eatToken(c);
+		expectToken(c, tokID);
+		cg_emitGoto(c->cg, referenceLabel(c, c->lex.id));
+		eatToken(c);
 	} else {
 		parseError(c);
 	}
@@ -350,6 +416,7 @@ static void parseProgram(demobasic_Context* c)
 	cg_emitBeginFunc(c->cg, functionName);
 	skip(c);
 	parseBody(c, tokEOF, tokDONTMATCH);
+	checkLabelReferences(c);
 	cg_emitEndFunc(c->cg);
 	cg_finalize(c->cg);
 }
@@ -366,6 +433,7 @@ demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator
 
 	c.allocator = allocator;
 	ct_fixArrayInit(&c.varDecls);
+	ct_fixArrayInit(&c.labels);
 	c.cg = cg_newContext(allocator, result);
 	lex_initContext(&c.lex, sourceCode, sourceCodeLength);
 	lex_nextToken(&c.lex);

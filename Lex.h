@@ -14,6 +14,7 @@ enum lex_Token {
 	tokWHITE,
 	tokID,
 	tokNUMCONST,
+	tokCOLON,
 	tokLPAR,
 	tokRPAR,
 	tokPLUS,
@@ -37,6 +38,7 @@ enum lex_Token {
 	tokTHEN,
 	tokELSE,
 	tokENDIF,
+	tokGOTO,
 
 	tokDONTMATCH = 2000000 /* Lexer will never return this token value */
 };

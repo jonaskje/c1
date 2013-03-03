@@ -4,11 +4,15 @@ stm:		var = exp |
 		if exp then stm  |
 		if exp then "\n" body endif |
 		if exp then "\n" body else "\n" body endif 
+		":" label 
+		goto label 
 stmline:	stm "\n"
 var:		numvar
 const:		numconst
 numvar:		id
+label:		id
 op:		+  |  -  |  * |  /  | %  |  &  |  "|" |  =  |  <>  |  <  |  >  |  <=  |  >=
+
 
 
 LL(1) expression grammar:

@@ -300,10 +300,47 @@ e_jmp_rel(ec_Context* c, i32 relAddr)
 }
 
 static void
-e_test_al_imm8(ec_Context* c, u8 imm8)
+e_logicalCmp_rax_r64(ec_Context* c, u8 reg, cg_BinOp op)
 {
-	/* A8 ib */
-	put2(c, 0xa8u, imm8);
+	/*
+	cmp	%rax, %reg		REX.W + 39 /r
+	set*	%al			0F *                 NE, E, L, G, LE, LG
+	andb	%al, $1			24 ib
+	movzbl	%rax, %al		REX.W + 0F B6 /r
+	*/
+	put3(c, rexW(reg, ec_RAX), 0x39u, modrmReg(reg, ec_RAX));
+	switch (op) {
+	case cg_NE: put3(c, 0x0fu, 0x95u, modrmReg(0, ec_RAX)); break;
+	case cg_EQ: put3(c, 0x0fu, 0x94u, modrmReg(0, ec_RAX)); break;
+	case cg_LE: put3(c, 0x0fu, 0x9eu, modrmReg(0, ec_RAX)); break;
+	case cg_GE: put3(c, 0x0fu, 0x9du, modrmReg(0, ec_RAX)); break;
+	case cg_LT: put3(c, 0x0fu, 0x9cu, modrmReg(0, ec_RAX)); break;
+	case cg_GT: put3(c, 0x0fu, 0x9fu, modrmReg(0, ec_RAX)); break;
+	default: assert(0);
+	}
+	put2(c, 0x24u, 0x01u);
+	put4(c, rexW(ec_RAX, 0), 0x0fu, 0xb6u, modrmReg(ec_RAX, 0)); 
+}
+
+static void
+e_logical_not(ec_Context* c, u8 reg)
+{
+	/*
+	setne	%al			0F 95
+	andb	%al, $1			24 ib
+	movzbl	%rax, %al		REX.W + 0F B6 /r
+	*/
+	put3(c, 0x0fu, 0x95u, modrmReg(0, reg));
+	put2(c, 0x24u, 0x01u);
+	put4(c, rexW(reg, 0), 0x0fu, 0xb6u, modrmReg(reg, 0)); 
+}
+
+static void
+e_test_rm64_imm32(ec_Context* c, u8 r1, i32 imm32)
+{
+	/* REX.W + F7 /0 id */
+	put3(c, rexW(0, r1), 0xf7u, modrmReg(0, r1)); 
+	puti32(c, imm32);
 }
 
 /******************************************************************************/
@@ -543,8 +580,12 @@ ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_
 				e_mov_r64_r64(		c, ec_RAX, ec_RDX); /* Remainder in RDX */
 				break;
 	case cg_EQ:
-				e_sub_r64_r64(		c, ec_RAX, ec_R15);	
-				e_not_r64(		c, ec_RAX);	
+	case cg_NE:
+	case cg_GT:
+	case cg_LT:
+	case cg_LE:
+	case cg_GE:
+				e_logicalCmp_rax_r64(	c, ec_R15, op);	
 				break;
 	default: assert(0);
 	}
@@ -564,7 +605,7 @@ ec_emitIfFalseGoto(cg_Backend* backend, cg_Var* var, cg_Label* label)
 {
 	ec_Context* c = ec_getContext(backend);	
 	moveVarToReg(c, ec_RAX, var);
-	e_test_al_imm8(c, 0xffu);
+	e_test_rm64_imm32(c, ec_RAX, -1);
 	e_jz_rel(c, 0);
 	addLabelRef(c, label, (c->streamCursor - c->stream) - sizeof(i32));
 }

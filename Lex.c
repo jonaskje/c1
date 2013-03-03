@@ -67,6 +67,7 @@ static int tokenId(lex_Context* c, const char* idBegin)
 	else if (0 == strcmp(c->id, "and"))		return token(c, tokLOGICALAND);	
 	else if (0 == strcmp(c->id, "or"))		return token(c, tokLOGICALOR);	
 	else if (0 == strcmp(c->id, "not"))		return token(c, tokLOGICALNOT);	
+	else if (0 == strcmp(c->id, "goto"))		return token(c, tokGOTO);	
 	else						return token(c, tokID);
 }
 
@@ -150,6 +151,16 @@ int lex_nextToken(lex_Context* c)
 	case '\t': return token(c, tokWHITE);
 	case '(' : return token(c, tokLPAR);
 	case ')' : return token(c, tokRPAR);
+	case ':' : return token(c, tokCOLON);
+	case '#' : /* comment */
+		   for(;;) {
+			   nextChar(c);
+			   if (c->c == '\n' || c->c == -1) {
+				   prevChar(c);
+				   break;
+			   }
+		   }
+		   return token(c, tokWHITE);
 	default  : return token(c, tokERROR_ILLEGAL_CHARACTER);		   
 	}	
 }
