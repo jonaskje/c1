@@ -24,15 +24,16 @@ enum lex_Token {
 	tokMOD,
 	tokAND,
 	tokOR,
+	tokNOT,
 	tokEQ,
 	tokNE,
 	tokLT,
 	tokGT,
 	tokLE,
 	tokGE,
-	tokLOGICALAND,
+/*	tokLOGICALAND,
 	tokLOGICALOR,
-	tokLOGICALNOT,
+	tokLOGICALNOT, */
 
 	tokIF,
 	tokTHEN,

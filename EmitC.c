@@ -279,6 +279,20 @@ e_xor_r64_r64(ec_Context* c, u8 r1, u8 r2)
 }
 
 static void
+e_and_r64_r64(ec_Context* c, u8 r1, u8 r2)
+{
+	/* REX.W + 23 /r */
+	put3(c, rexW(r1, r2), 0x23u, modrmReg(r1, r2));
+}
+
+static void
+e_or_r64_r64(ec_Context* c, u8 r1, u8 r2)
+{
+	/* REX.W + 0B /r */
+	put3(c, rexW(r1, r2), 0x0bu, modrmReg(r1, r2));
+}
+
+static void
 e_not_r64(ec_Context* c, u8 reg)
 {
 	/* REX.W + F7 /2 */
@@ -320,19 +334,6 @@ e_logicalCmp_rax_r64(ec_Context* c, u8 reg, cg_BinOp op)
 	}
 	put2(c, 0x24u, 0x01u);
 	put4(c, rexW(ec_RAX, 0), 0x0fu, 0xb6u, modrmReg(ec_RAX, 0)); 
-}
-
-static void
-e_logical_not(ec_Context* c, u8 reg)
-{
-	/*
-	setne	%al			0F 95
-	andb	%al, $1			24 ib
-	movzbl	%rax, %al		REX.W + 0F B6 /r
-	*/
-	put3(c, 0x0fu, 0x95u, modrmReg(0, reg));
-	put2(c, 0x24u, 0x01u);
-	put4(c, rexW(reg, 0), 0x0fu, 0xb6u, modrmReg(reg, 0)); 
 }
 
 static void
@@ -570,15 +571,18 @@ ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_
 	case cg_PLUS:		e_add_r64_r64(		c, ec_RAX, ec_R15);	break;
 	case cg_MINUS:		e_sub_r64_r64(		c, ec_RAX, ec_R15);	break;
 	case cg_MULT:		e_imul_r64_r64(		c, ec_RAX, ec_R15);	break;
+	
 	case cg_DIV:
 				e_xor_r64_r64(		c, ec_RDX, ec_RDX);
 				e_idiv_r64(		c, ec_R15);	
 				break;
+	
 	case cg_MOD:
 				e_xor_r64_r64(		c, ec_RDX, ec_RDX);
 				e_idiv_r64(		c, ec_R15);	
 				e_mov_r64_r64(		c, ec_RAX, ec_RDX); /* Remainder in RDX */
 				break;
+
 	case cg_EQ:
 	case cg_NE:
 	case cg_GT:
@@ -587,6 +591,9 @@ ec_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg_
 	case cg_GE:
 				e_logicalCmp_rax_r64(	c, ec_R15, op);	
 				break;
+
+	case cg_AND:		e_and_r64_r64(		c, ec_RAX, ec_R15);	break;
+	case cg_OR:		e_or_r64_r64(		c, ec_RAX, ec_R15);	break;
 	default: assert(0);
 	}
 	

@@ -64,9 +64,9 @@ static int tokenId(lex_Context* c, const char* idBegin)
 	else if (0 == strcmp(c->id, "then"))		return token(c, tokTHEN);	
 	else if (0 == strcmp(c->id, "else"))		return token(c, tokELSE);	
 	else if (0 == strcmp(c->id, "endif"))		return token(c, tokENDIF);	
-	else if (0 == strcmp(c->id, "and"))		return token(c, tokLOGICALAND);	
-	else if (0 == strcmp(c->id, "or"))		return token(c, tokLOGICALOR);	
-	else if (0 == strcmp(c->id, "not"))		return token(c, tokLOGICALNOT);	
+	else if (0 == strcmp(c->id, "and"))		return token(c, tokAND);	
+	else if (0 == strcmp(c->id, "or"))		return token(c, tokOR);	
+	else if (0 == strcmp(c->id, "not"))		return token(c, tokNOT);	
 	else if (0 == strcmp(c->id, "goto"))		return token(c, tokGOTO);	
 	else						return token(c, tokID);
 }
@@ -130,8 +130,6 @@ int lex_nextToken(lex_Context* c)
 		case '*' : return token(c, tokMULT);
 		case '/' : return token(c, tokDIV);
 		case '%' : return token(c, tokMOD);
-		case '&' : return token(c, tokAND);
-		case '|' : return token(c, tokOR);
 		case '=' : return token(c, tokEQ);
 		case '<' :
 			   nextChar(c);

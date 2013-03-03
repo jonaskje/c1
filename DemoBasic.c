@@ -192,7 +192,7 @@ static cg_Var* parseExpression(demobasic_Context* c) /* exp1 */
 static cg_Var* parseExp2(demobasic_Context* c, cg_Var* lhs)
 {
 	switch(getToken(c)) {
-	case tokLOGICALOR:	return doBinaryOpNode(c, lhs, parseExpression, cg_LOGICALOR);
+	case tokOR:		return doBinaryOpNode(c, lhs, parseExpression, cg_OR);
 	default:		return lhs;
 	}
 }
@@ -207,7 +207,7 @@ static cg_Var* parseExp3(demobasic_Context* c)
 static cg_Var* parseExp4(demobasic_Context* c, cg_Var* lhs)
 {
 	switch(getToken(c)) {
-	case tokLOGICALAND:	return doBinaryOpNode(c, lhs, parseExp3, cg_LOGICALAND);
+	case tokAND:		return doBinaryOpNode(c, lhs, parseExp3, cg_AND);
 	default:		return lhs;
 	}
 }
@@ -319,13 +319,13 @@ static cg_Var* parseFactor(demobasic_Context* c)
 		temp = parseFactor(c);
 		result = cg_newTempVar(c->cg, temp);
 		cg_emitUnaryOp(c->cg, result, cg_UNARYMINUS, temp);
-	} else if (getToken(c) == tokLOGICALNOT) {	/* not exp */
+	} else if (getToken(c) == tokNOT) {	/* not exp */
 		lex_nextToken(&c->lex);
 		skip(c);
 		temp = parseFactor(c);
 		result = cg_newTempVar(c->cg, temp);
 		/* TODO: check integer type */
-		cg_emitUnaryOp(c->cg, result, cg_LOGICALNOT, temp);
+		cg_emitUnaryOp(c->cg, result, cg_NOT, temp);
 	} else {
 		parseError(c);
 	}

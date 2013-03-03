@@ -13,8 +13,8 @@ enum cg_BinOp {
 	cg_GT,
 	cg_LE,
 	cg_GE,
-	cg_LOGICALAND,
-	cg_LOGICALOR,
+	cg_AND,
+	cg_OR,
 	cg_MULT,
 	cg_DIV,
 	cg_MOD,
@@ -25,7 +25,7 @@ typedef enum cg_BinOp cg_BinOp;
 
 enum cg_UnaryOp {
 	cg_UNARYMINUS,
-	cg_LOGICALNOT
+	cg_NOT
 };
 typedef enum cg_UnaryOp cg_UnaryOp;
 
