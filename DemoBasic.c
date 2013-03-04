@@ -137,25 +137,20 @@ static void parseError(demobasic_Context* c)
 	exit(-2);
 }
 
-static int getToken(demobasic_Context* c)
-{
-	return c->lex.tok;
-}
-
 static void eatToken(demobasic_Context* c)
 {
 	lex_nextToken(&c->lex);
 }
 
-static void skip(demobasic_Context* c)
+static int getToken(demobasic_Context* c)
 {
-	while (getToken(c) == tokWHITE)
+	while (c->lex.tok == tokWHITE)
 		eatToken(c);
+	return c->lex.tok;
 }
 
 static void expectToken(demobasic_Context* c, int token)
 {
-	skip(c);
 	if (getToken(c) != token)
 		parseError(c);
 }
@@ -170,8 +165,7 @@ static cg_Var* doBinaryOpNode(demobasic_Context* c, cg_Var* lhs, cg_Var* (rhsFun
 {
 	cg_Var* result;
 	cg_Var* rhs;
-	lex_nextToken(&c->lex);
-	skip(c);
+	eatToken(c);
 	rhs = rhsFunc(c);
 	result = cg_newTempVar(c->cg, rhs);
 	cg_emitBinOp(c->cg, result, lhs, op, rhs);
@@ -185,7 +179,6 @@ static cg_Var* doBinaryOpNode(demobasic_Context* c, cg_Var* lhs, cg_Var* (rhsFun
 static cg_Var* parseExpression(demobasic_Context* c) /* exp1 */
 {
 	cg_Var* lhs = parseExp3(c);
-	skip(c);
 	return parseExp2(c, lhs);
 }
 
@@ -200,7 +193,6 @@ static cg_Var* parseExp2(demobasic_Context* c, cg_Var* lhs)
 static cg_Var* parseExp3(demobasic_Context* c)
 {
 	cg_Var* lhs = parseExp5(c);
-	skip(c);
 	return parseExp4(c, lhs);
 }
 
@@ -215,7 +207,6 @@ static cg_Var* parseExp4(demobasic_Context* c, cg_Var* lhs)
 static cg_Var* parseExp5(demobasic_Context* c)
 {
 	cg_Var* lhs = parseExp7(c);
-	skip(c);
 	return parseExp6(c, lhs);
 }
 
@@ -231,7 +222,6 @@ static cg_Var* parseExp6(demobasic_Context* c, cg_Var* lhs)
 static cg_Var* parseExp7(demobasic_Context* c)
 {
 	cg_Var* lhs = parseExp9(c);
-	skip(c);
 	return parseExp8(c, lhs);
 }
 
@@ -255,15 +245,13 @@ static cg_Var* parseExp9(demobasic_Context* c)
 
 	for(;;)	
 	{
-		skip(c);
 		switch(getToken(c)) {
 		case tokPLUS:		op = cg_PLUS; break;
 		case tokMINUS:		op = cg_MINUS; break;
 		default:		return acc;
 		}
 		
-		lex_nextToken(&c->lex);
-		skip(c);
+		eatToken(c);
 		rhs = parseTerm1(c);
 		acc = cg_newTempVar(c->cg, rhs);
 		cg_emitBinOp(c->cg, acc, lhs, op, rhs);
@@ -280,7 +268,6 @@ static cg_Var* parseTerm1(demobasic_Context* c)
 
 	for(;;)	
 	{
-		skip(c);
 		switch(getToken(c)) {
 		case tokMULT:		op = cg_MULT; break;
 		case tokDIV:		op = cg_DIV; break;
@@ -288,8 +275,7 @@ static cg_Var* parseTerm1(demobasic_Context* c)
 		default:		return acc;
 		}
 		
-		lex_nextToken(&c->lex);
-		skip(c);
+		eatToken(c);
 		rhs = parseFactor(c);
 		acc = cg_newTempVar(c->cg, rhs);
 		cg_emitBinOp(c->cg, acc, lhs, op, rhs);
@@ -303,25 +289,22 @@ static cg_Var* parseFactor(demobasic_Context* c)
 	cg_Var* result = 0;
 	if (getToken(c) == tokNUMCONST) {	/* const */
 		result = cg_newIntConstant(c->cg, c->lex.numConst);
-		lex_nextToken(&c->lex);
+		eatToken(c);
 	} else if (getToken(c) == tokID) {	/* var */
 		VarDecl* var = findOrFailVarDecl(c, c->lex.id);
 		result = var->var;
-		lex_nextToken(&c->lex);
+		eatToken(c);
 	} else if (getToken(c) == tokLPAR) {	/* ( exp1 ) */
-		lex_nextToken(&c->lex);
-		skip(c);
+		eatToken(c);
 		result = parseExpression(c);
 		skipToken(c, tokRPAR);
 	} else if (getToken(c) == tokMINUS) {	/* -factor */
-		lex_nextToken(&c->lex);
-		skip(c);
+		eatToken(c);
 		temp = parseFactor(c);
 		result = cg_newTempVar(c->cg, temp);
 		cg_emitUnaryOp(c->cg, result, cg_UNARYMINUS, temp);
 	} else if (getToken(c) == tokNOT) {	/* not exp */
-		lex_nextToken(&c->lex);
-		skip(c);
+		eatToken(c);
 		temp = parseFactor(c);
 		result = cg_newTempVar(c->cg, temp);
 		/* TODO: check integer type */
@@ -336,29 +319,25 @@ static void parseStm(demobasic_Context* c)
 {
 	if (getToken(c) == tokID) {
 		VarDecl* var = findOrAddVarDecl(c, c->lex.id);
-		lex_nextToken(&c->lex);
+		eatToken(c);
 		skipToken(c, tokEQ);
-		skip(c);
 		cg_emitAssign(c->cg, var->var, parseExpression(c));
 	} else if (getToken(c) == tokIF) {
 		cg_Var* expr;
 		cg_Label* label1 = cg_newTempLabel(c->cg);
-		lex_nextToken(&c->lex);
-		skip(c);
+		eatToken(c);
 		expr = parseExpression(c);
 		skipToken(c, tokTHEN);
-		skip(c);
 		if (getToken(c) == tokNEWLINE) {
-			lex_nextToken(&c->lex);
-			skip(c);
+			eatToken(c);
 			cg_emitIfFalseGoto(c->cg, expr, label1);
 			parseBody(c, tokENDIF, tokELSE);
 			if (getToken(c) == tokENDIF) {
-				lex_nextToken(&c->lex);
+				eatToken(c);
 				cg_emitLabel(c->cg, label1);
 			} else if (getToken(c) == tokELSE) {
 				cg_Label* label2 = cg_newTempLabel(c->cg);
-				lex_nextToken(&c->lex);
+				eatToken(c);
 				cg_emitGoto(c->cg, label2);
 				cg_emitLabel(c->cg, label1);
 				skipToken(c, tokNEWLINE);
@@ -370,7 +349,6 @@ static void parseStm(demobasic_Context* c)
 			}
 		} else {
 			/* Single line if */
-			skip(c);
 			cg_emitIfFalseGoto(c->cg, expr, label1);
 			parseStm(c);
 			cg_emitLabel(c->cg, label1);
@@ -402,18 +380,14 @@ static void parseStmLine(demobasic_Context* c)
 
 static void parseBody(demobasic_Context* c, int endToken1, int endToken2)
 {
-	skip(c);
-	while (getToken(c) != endToken1 && getToken(c) != endToken2) {
+	while (getToken(c) != endToken1 && getToken(c) != endToken2)
 		parseStmLine(c);
-		skip(c);
-	}
 }
 
 static void parseProgram(demobasic_Context* c)
 {
 	cg_Label* functionName = cg_newLabel(c->cg, "main");
 	cg_emitBeginFunc(c->cg, functionName);
-	skip(c);
 	parseBody(c, tokEOF, tokDONTMATCH);
 	checkLabelReferences(c);
 	cg_emitEndFunc(c->cg);
@@ -435,7 +409,7 @@ demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator
 	ct_fixArrayInit(&c.labels);
 	c.cg = cg_newContext(allocator, result);
 	lex_initContext(&c.lex, sourceCode, sourceCodeLength);
-	lex_nextToken(&c.lex);
+	eatToken(&c);
 	parseProgram(&c);
 
 	cg_deleteContext(c.cg);
