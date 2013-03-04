@@ -47,7 +47,8 @@ static cg_Var* parseExpression(demobasic_Context* c);
 static void parseError(demobasic_Context* c);
 /************************************************************************/
 
-static VarDecl* findVarDecl(demobasic_Context* c, const char* id)
+static VarDecl* 
+findVarDecl(demobasic_Context* c, const char* id)
 {
 	VarDecl* it;
 	ct_fixArrayForEach(&c->varDecls, it) {
@@ -56,7 +57,9 @@ static VarDecl* findVarDecl(demobasic_Context* c, const char* id)
 	}
 	return 0;
 }
-static VarDecl* findOrAddVarDecl(demobasic_Context* c, const char* id)
+
+static VarDecl* 
+findOrAddVarDecl(demobasic_Context* c, const char* id)
 {
 	VarDecl* it = findVarDecl(c, id);
 	if (it) {
@@ -70,7 +73,8 @@ static VarDecl* findOrAddVarDecl(demobasic_Context* c, const char* id)
 	}
 }
 
-static VarDecl* findOrFailVarDecl(demobasic_Context* c, const char* id)
+static VarDecl* 
+findOrFailVarDecl(demobasic_Context* c, const char* id)
 {
 	VarDecl* it = findVarDecl(c, id);
 	if (it) {
@@ -83,7 +87,8 @@ static VarDecl* findOrFailVarDecl(demobasic_Context* c, const char* id)
 
 /************************************************************************/
 
-static cg_Label* _addLabel(demobasic_Context* c, const char* id, int defined)
+static cg_Label* 
+addLabel(demobasic_Context* c, const char* id, int defined)
 {
 	Label* it;
 	ct_fixArrayPushBackRaw(&c->labels);
@@ -94,17 +99,19 @@ static cg_Label* _addLabel(demobasic_Context* c, const char* id, int defined)
 	return it->label;
 }
 
-static cg_Label* referenceLabel(demobasic_Context* c, const char* id)
+static cg_Label* 
+referenceLabel(demobasic_Context* c, const char* id)
 {
 	Label* it;
 	ct_fixArrayForEach(&c->labels, it) {
 		if (0 == strcmp(id, it->id))
 			return it->label;
 	}
-	return _addLabel(c, id, 0);
+	return addLabel(c, id, 0);
 }
 
-static cg_Label* defineLabel(demobasic_Context* c, const char* id)
+static cg_Label* 
+defineLabel(demobasic_Context* c, const char* id)
 {
 	Label* it;
 	ct_fixArrayForEach(&c->labels, it) {
@@ -117,10 +124,11 @@ static cg_Label* defineLabel(demobasic_Context* c, const char* id)
 			}
 		}
 	}
-	return _addLabel(c, id, 1);
+	return addLabel(c, id, 1);
 }
 
-static void checkLabelReferences(demobasic_Context* c)
+static void 
+checkLabelReferences(demobasic_Context* c)
 {
 	Label* it;
 	ct_fixArrayForEach(&c->labels, it) {
@@ -131,37 +139,43 @@ static void checkLabelReferences(demobasic_Context* c)
 
 /************************************************************************/
 
-static void parseError(demobasic_Context* c)
+static void 
+parseError(demobasic_Context* c)
 {
 	printf("Parse error at %3d:%3d\n", c->lex.line, c->lex.col);
 	exit(-2);
 }
 
-static void eatToken(demobasic_Context* c)
+static void 
+eatToken(demobasic_Context* c)
 {
 	lex_nextToken(&c->lex);
 }
 
-static int getToken(demobasic_Context* c)
+static int 
+getToken(demobasic_Context* c)
 {
 	while (c->lex.tok == tokWHITE)
 		eatToken(c);
 	return c->lex.tok;
 }
 
-static void expectToken(demobasic_Context* c, int token)
+static void 
+expectToken(demobasic_Context* c, int token)
 {
 	if (getToken(c) != token)
 		parseError(c);
 }
 
-static void skipToken(demobasic_Context* c, int token)
+static void 
+expectAndEatToken(demobasic_Context* c, int token)
 {
 	expectToken(c, token);
 	eatToken(c);
 }
 
-static cg_Var* doBinaryOpNode(demobasic_Context* c, cg_Var* lhs, cg_Var* (rhsFunc)(demobasic_Context*), cg_BinOp op)
+static cg_Var* 
+doBinaryOpNode(demobasic_Context* c, cg_Var* lhs, cg_Var* (rhsFunc)(demobasic_Context*), cg_BinOp op)
 {
 	cg_Var* result;
 	cg_Var* rhs;
@@ -176,13 +190,15 @@ static cg_Var* doBinaryOpNode(demobasic_Context* c, cg_Var* lhs, cg_Var* (rhsFun
   Expressions
 ******************************************************************************/
 
-static cg_Var* parseExpression(demobasic_Context* c) /* exp1 */
+static cg_Var* 
+parseExpression(demobasic_Context* c) /* exp1 */
 {
 	cg_Var* lhs = parseExp3(c);
 	return parseExp2(c, lhs);
 }
 
-static cg_Var* parseExp2(demobasic_Context* c, cg_Var* lhs)
+static cg_Var* 
+parseExp2(demobasic_Context* c, cg_Var* lhs)
 {
 	switch(getToken(c)) {
 	case tokOR:		return doBinaryOpNode(c, lhs, parseExpression, cg_OR);
@@ -190,13 +206,15 @@ static cg_Var* parseExp2(demobasic_Context* c, cg_Var* lhs)
 	}
 }
 
-static cg_Var* parseExp3(demobasic_Context* c)
+static cg_Var* 
+parseExp3(demobasic_Context* c)
 {
 	cg_Var* lhs = parseExp5(c);
 	return parseExp4(c, lhs);
 }
 
-static cg_Var* parseExp4(demobasic_Context* c, cg_Var* lhs)
+static cg_Var* 
+parseExp4(demobasic_Context* c, cg_Var* lhs)
 {
 	switch(getToken(c)) {
 	case tokAND:		return doBinaryOpNode(c, lhs, parseExp3, cg_AND);
@@ -204,13 +222,15 @@ static cg_Var* parseExp4(demobasic_Context* c, cg_Var* lhs)
 	}
 }
 
-static cg_Var* parseExp5(demobasic_Context* c)
+static cg_Var* 
+parseExp5(demobasic_Context* c)
 {
 	cg_Var* lhs = parseExp7(c);
 	return parseExp6(c, lhs);
 }
 
-static cg_Var* parseExp6(demobasic_Context* c, cg_Var* lhs)
+static cg_Var* 
+parseExp6(demobasic_Context* c, cg_Var* lhs)
 {
 	switch(getToken(c)) {
 	case tokEQ:		return doBinaryOpNode(c, lhs, parseExp5, cg_EQ);
@@ -219,13 +239,15 @@ static cg_Var* parseExp6(demobasic_Context* c, cg_Var* lhs)
 	}
 }
 
-static cg_Var* parseExp7(demobasic_Context* c)
+static cg_Var* 
+parseExp7(demobasic_Context* c)
 {
 	cg_Var* lhs = parseExp9(c);
 	return parseExp8(c, lhs);
 }
 
-static cg_Var* parseExp8(demobasic_Context* c, cg_Var* lhs)
+static cg_Var* 
+parseExp8(demobasic_Context* c, cg_Var* lhs)
 {
 	switch(getToken(c)) {
 	case tokLT:		return doBinaryOpNode(c, lhs, parseExp7, cg_LT);
@@ -236,7 +258,8 @@ static cg_Var* parseExp8(demobasic_Context* c, cg_Var* lhs)
 	}
 }
 
-static cg_Var* parseExp9(demobasic_Context* c)
+static cg_Var* 
+parseExp9(demobasic_Context* c)
 {
 	cg_Var* lhs = parseTerm1(c);
 	cg_Var* rhs;
@@ -259,7 +282,8 @@ static cg_Var* parseExp9(demobasic_Context* c)
 	}
 }
 
-static cg_Var* parseTerm1(demobasic_Context* c)
+static cg_Var* 
+parseTerm1(demobasic_Context* c)
 {
 	cg_Var* lhs = parseFactor(c);
 	cg_Var* rhs;
@@ -283,7 +307,8 @@ static cg_Var* parseTerm1(demobasic_Context* c)
 	}
 }
 
-static cg_Var* parseFactor(demobasic_Context* c)
+static cg_Var* 
+parseFactor(demobasic_Context* c)
 {
 	cg_Var* temp;
 	cg_Var* result = 0;
@@ -297,7 +322,7 @@ static cg_Var* parseFactor(demobasic_Context* c)
 	} else if (getToken(c) == tokLPAR) {	/* ( exp1 ) */
 		eatToken(c);
 		result = parseExpression(c);
-		skipToken(c, tokRPAR);
+		expectAndEatToken(c, tokRPAR);
 	} else if (getToken(c) == tokMINUS) {	/* -factor */
 		eatToken(c);
 		temp = parseFactor(c);
@@ -315,19 +340,20 @@ static cg_Var* parseFactor(demobasic_Context* c)
 	return result;
 }
 
-static void parseStm(demobasic_Context* c)
+static void 
+parseStm(demobasic_Context* c)
 {
 	if (getToken(c) == tokID) {
 		VarDecl* var = findOrAddVarDecl(c, c->lex.id);
 		eatToken(c);
-		skipToken(c, tokEQ);
+		expectAndEatToken(c, tokEQ);
 		cg_emitAssign(c->cg, var->var, parseExpression(c));
 	} else if (getToken(c) == tokIF) {
 		cg_Var* expr;
 		cg_Label* label1 = cg_newTempLabel(c->cg);
 		eatToken(c);
 		expr = parseExpression(c);
-		skipToken(c, tokTHEN);
+		expectAndEatToken(c, tokTHEN);
 		if (getToken(c) == tokNEWLINE) {
 			eatToken(c);
 			cg_emitIfFalseGoto(c->cg, expr, label1);
@@ -340,9 +366,9 @@ static void parseStm(demobasic_Context* c)
 				eatToken(c);
 				cg_emitGoto(c->cg, label2);
 				cg_emitLabel(c->cg, label1);
-				skipToken(c, tokNEWLINE);
+				expectAndEatToken(c, tokNEWLINE);
 				parseBody(c, tokENDIF, tokDONTMATCH);
-				skipToken(c, tokENDIF);
+				expectAndEatToken(c, tokENDIF);
 				cg_emitLabel(c->cg, label2);
 			} else {
 				parseError(c);
@@ -372,19 +398,22 @@ static void parseStm(demobasic_Context* c)
 
 }
 
-static void parseStmLine(demobasic_Context* c)
+static void 
+parseStmLine(demobasic_Context* c)
 {
 	parseStm(c);
-	skipToken(c, tokNEWLINE); 
+	expectAndEatToken(c, tokNEWLINE); 
 }
 
-static void parseBody(demobasic_Context* c, int endToken1, int endToken2)
+static void 
+parseBody(demobasic_Context* c, int endToken1, int endToken2)
 {
 	while (getToken(c) != endToken1 && getToken(c) != endToken2)
 		parseStmLine(c);
 }
 
-static void parseProgram(demobasic_Context* c)
+static void 
+parseProgram(demobasic_Context* c)
 {
 	cg_Label* functionName = cg_newLabel(c->cg, "main");
 	cg_emitBeginFunc(c->cg, functionName);
