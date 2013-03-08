@@ -300,6 +300,13 @@ e_not_r64(x64_Context* c, u8 reg)
 }
 
 static void
+e_neg_r64(x64_Context* c, u8 reg)
+{
+	/* REX.W + F7 /3 */
+	put3(c, rexW(0, reg), 0xf7u, modrmReg(3, reg)); 
+}
+
+static void
 e_jz_rel(x64_Context* c, i32 relAddr)
 {
 	put2(c, 0x0fu, 0x84u);
@@ -463,7 +470,7 @@ fixupLabelRefs(x64_Context* c)
 			}
 		}
 		if (!label)
-			assert(0 && "Same labelRef not found"); /* Should be checked by parser */
+			assert(0 && "Some labelRef not found"); /* Should be checked by parser */
 
 
 
@@ -604,7 +611,13 @@ static void
 x64_emitUnaryOp(cg_Backend* backend, cg_Var* result, cg_UnaryOp op, cg_Var* var)
 {
 	x64_Context* c = x64_getContext(backend);	
-	assert(0 && "Unary not supported");
+	moveVarToReg(c, x64_RAX, var);
+	switch(op) {
+	case cg_NOT:		e_not_r64(		c, x64_RAX);	break;
+	case cg_UNARYMINUS:	e_neg_r64(		c, x64_RAX);	break;
+	default:		assert(0);				break;
+	}
+	moveRegToVar(c, result, x64_RAX);
 }
 
 static void

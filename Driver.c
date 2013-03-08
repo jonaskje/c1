@@ -48,15 +48,71 @@ freeCodeMemory(u8* mem, size_t size)
 
 typedef long (DemoBasicFunc)(void);
 
-static void 
+static int 
 execute(mc_MachineCode* mc)
 {
 	size_t Capacity = 1024*1024;
+	int result = 0;
 	u8* execMem = allocCodeMemory(Capacity);
 	DemoBasicFunc* f = (DemoBasicFunc*)(execMem);
 	memcpy(execMem, (u8*)mc + mc->codeOffset, mc->codeSize);
-	printf ("Result = %ld\n", f());
+	result = f();
 	freeCodeMemory(execMem, Capacity);
+	return result;
+}
+
+static int
+runCode(mem_Allocator* allocator, const char* code, size_t size)
+{
+	int result;
+	mc_MachineCode* machineCode = demobasic_compile(code, size, allocator);
+	result = execute(machineCode);
+	free(machineCode);
+	return result;
+}
+
+static int
+runTests(mem_Allocator* allocator, char* code, size_t size)
+{
+	int testsRun = 0;
+	int testsOk  = 0;
+	char* p = code;
+	const char* pend = code + size;
+
+	if(size == 0 || code[0] != '@')
+		return 0;
+
+	while (p != pend) {
+		const char* idStart = p + 1;
+		const char* codeStart;
+		int expectedResult = 0;
+		int result = 0;
+		while(*p != ' ')
+			++p;
+		*p++ = 0;
+		expectedResult = atoi(p);
+		while(p != pend && *p != '\n')
+			++p;
+		codeStart = p;
+		
+		while(p != pend	&& *p != '@')
+			++p;
+		
+		result = runCode(allocator, codeStart, p - codeStart);
+
+		++testsRun;
+		if (result == expectedResult)
+			++testsOk;
+		
+		printf("%-40s: %s\n", idStart, (result == expectedResult) ? "Ok" : "Fail");
+	}
+
+	if (testsRun == testsOk)
+		printf("\nOK\n");
+	else
+		printf("\nFAILED: %d out of %d\n", (testsRun - testsOk), testsRun);
+
+	return 1;
 }
 
 int main(int argc, char** argv)
@@ -65,7 +121,6 @@ int main(int argc, char** argv)
 	char* code = 0;
 	size_t size;
 	mem_Allocator allocator;
-	mc_MachineCode* machineCode = 0;
 
 	if (0 != readFile(argv[1], &code, &size))
 	{
@@ -77,13 +132,10 @@ int main(int argc, char** argv)
 	allocator.allocMem = malloc;
 	allocator.freeMem = free;
 
-	machineCode = demobasic_compile(code, size, &allocator);
+	if (!runTests(&allocator, code, size))
+		runCode(&allocator, code, size);
 
-	execute(machineCode);
-
-	printf("Size: %u\n", machineCode->codeSize);
 done:
-	free(machineCode);
 	free(code);
 	return ret;
 }

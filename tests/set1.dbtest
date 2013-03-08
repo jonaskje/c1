@@ -1,0 +1,19 @@
+@Test1 1
+r = 1
+
+@Test2 4
+r = 0
+if r = 0 then r = r + 4
+
+@Test3 0
+r = 0
+if r <> 0 then r = r + 4
+
+@Test4 4
+r = 0
+if not r <> 0 then r = r + 4
+
+@Test5 1
+r = 0 
+a = 1
+if -a = -1 then r = 1
