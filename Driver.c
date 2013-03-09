@@ -85,14 +85,12 @@ runTests(mem_Allocator* allocator, char* code, size_t size)
 	while (p != pend) {
 		const char* idStart = p + 1;
 		const char* codeStart;
-		int expectedResult = 0;
+		int expectedResult = 1;
 		int result = 0;
-		while(*p != ' ')
-			++p;
-		*p++ = 0;
-		expectedResult = atoi(p);
 		while(p != pend && *p != '\n')
 			++p;
+		if (p != pend)
+			*p++ = 0;
 		codeStart = p;
 		
 		while(p != pend	&& *p != '@')

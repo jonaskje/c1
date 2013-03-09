@@ -89,13 +89,14 @@ cg_newTempLabel(cg_Context* c)
 }
 
 cg_Var*	
-cg_newVar(cg_Context* c, const char* name, cg_Type type)
+cg_newVar(cg_Context* c, const char* name, cg_Type type, u32 flags)
 {
 	cg_Var* v;
 	assert(ct_fixArraySize(&c->vars) < cg_MAX_VARS);
 	ct_fixArrayPushBackRaw(&c->vars);
 	v = ct_fixArrayLast(&c->vars);
 	v->type = type;
+	v->flags = flags;
 	if (name) {
 		v->kind = cg_Variable;
 		v->v.s = name;
@@ -110,7 +111,7 @@ cg_newVar(cg_Context* c, const char* name, cg_Type type)
 cg_Var*		
 cg_newTempVar(cg_Context* c, cg_Var* inheritType)
 {
-	return cg_newVar(c, 0, inheritType->type);
+	return cg_newVar(c, 0, inheritType->type, 0);
 }
 
 cg_Var*	
@@ -247,9 +248,14 @@ cg_emitGoto(cg_Context* c, cg_Label* label)
 
 
 cg_Type		
-cg_varType(cg_Context* c, cg_Var* var)
+cg_varType(cg_Var* var)
 {
-	(void)c;
 	return var->type;
+}
+
+u32
+cg_varFlags(cg_Var* var)
+{
+	return var->flags;
 }
 

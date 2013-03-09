@@ -67,7 +67,10 @@ findOrAddVarDecl(demobasic_Context* c, const char* id)
 	} else {
 		VarDecl newDecl;
 		strcpy(newDecl.id, id);
-		newDecl.var = cg_newVar(c->cg, newDecl.id, cg_Auto);
+		if (0 == strcmp(id, "_retval"))
+			newDecl.var = cg_newVar(c->cg, newDecl.id, cg_Auto, cg_IsRetVal);
+		else
+			newDecl.var = cg_newVar(c->cg, newDecl.id, cg_Auto, 0);
 		ct_fixArrayPushBack(&c->varDecls, &newDecl);
 		return ct_fixArrayLast(&c->varDecls);
 	}

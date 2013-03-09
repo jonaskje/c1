@@ -364,6 +364,17 @@ findStackEntry(x64_Context* c, cg_Var* var)
 	return 0;
 }
 
+static x64_StackEntry*
+findRetValStackEntry(x64_Context* c)
+{
+	x64_StackEntry* it;
+	ct_fixArrayForEach(&c->stackEntries, it) {
+		if (it->var->flags & cg_IsRetVal)
+			return it;
+	}
+	return 0;
+}
+
 static u8
 getTempReg(cg_Var* var)
 {
@@ -503,11 +514,12 @@ static void
 x64_emitEndFunc(cg_Backend* backend)
 {
 	x64_Context* c = x64_getContext(backend);	
-	/* Temp: Move the first variable to rax */
-	if (ct_fixArraySize(&c->stackEntries) > 0) {
-		x64_StackEntry* entry = ct_fixArrayItem(&c->stackEntries, 0);
-		assert(entry->var->type == cg_Int);
-		e_mov_r64_m64(		c, x64_RAX, x64_RBP, entry->offset);
+	x64_StackEntry* retval = findRetValStackEntry(c);
+	if (retval) {
+		assert(retval->var->type == cg_Int);
+		e_mov_r64_m64(		c, x64_RAX, x64_RBP, retval->offset);
+	} else {
+		e_mov_r64_imm64(	c, x64_RAX, 0);
 	}
 	e_add_r64_imm32(	c, x64_RSP, 0);
 	rememberStackSizePatch(c, 1);

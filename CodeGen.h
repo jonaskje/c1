@@ -1,4 +1,5 @@
 #pragma once
+#include "Types.h"
 #include "Memory.h"
 
 typedef struct cg_Context	cg_Context;
@@ -37,13 +38,19 @@ enum cg_Type {
 };
 typedef enum cg_Type cg_Type;
 
+enum cg_VarFlags
+{
+	cg_IsRetVal = 1 << 0
+};
+typedef enum cg_VarFlags cg_VarFlags;
+
 cg_Context*	cg_newContext(		mem_Allocator* allocator, struct mc_MachineCode* mc);
 void		cg_deleteContext(	cg_Context* c);
 void		cg_finalize(		cg_Context* c);
 
 cg_Label*	cg_newLabel(		cg_Context* c, const char* name);
 cg_Label*	cg_newTempLabel(	cg_Context* c);
-cg_Var*		cg_newVar(		cg_Context* c, const char* name, cg_Type type);
+cg_Var*		cg_newVar(		cg_Context* c, const char* name, cg_Type type, u32 flags);
 cg_Var*		cg_newTempVar(		cg_Context* c, cg_Var* inheritType);
 cg_Var*		cg_newIntConstant(	cg_Context* c, int value);
 cg_Var*		cg_newNumberConstant(	cg_Context* c, double value);
@@ -58,5 +65,6 @@ void		cg_emitUnaryOp(		cg_Context* c, cg_Var* result, cg_UnaryOp op, cg_Var* var
 void		cg_emitIfFalseGoto(	cg_Context* c, cg_Var* var, cg_Label* label);
 void		cg_emitGoto(		cg_Context* c, cg_Label* label);
 
-cg_Type		cg_varType(		cg_Context* c, cg_Var* var);
+cg_Type		cg_varType(		cg_Var* var);
+u32		cg_varFlags(		cg_Var* var);	/* One or more of cg_VarFlags */
 

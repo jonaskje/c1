@@ -20,6 +20,7 @@ struct cg_Var
 {
 	cg_Type type;
 	cg_Kind kind;
+	u32 flags;			/* One or more of cg_VarFlags */
 	union {
 		const char* s;
 		int i;
