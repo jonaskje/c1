@@ -60,14 +60,15 @@ static int tokenId(lex_Context* c, const char* idBegin)
 	strncpy(c->id, idBegin, len);
 	assert(len < lex_MAX_ID_LENGTH);
 	c->id[len] = 0;
-	if      (0 == strcmp(c->id, "if"))		return token(c, tokIF);
-	else if (0 == strcmp(c->id, "then"))		return token(c, tokTHEN);	
-	else if (0 == strcmp(c->id, "else"))		return token(c, tokELSE);	
-	else if (0 == strcmp(c->id, "endif"))		return token(c, tokENDIF);	
-	else if (0 == strcmp(c->id, "and"))		return token(c, tokAND);	
-	else if (0 == strcmp(c->id, "or"))		return token(c, tokOR);	
-	else if (0 == strcmp(c->id, "not"))		return token(c, tokNOT);	
-	else if (0 == strcmp(c->id, "goto"))		return token(c, tokGOTO);	
+	if      (0 == strcasecmp(c->id, "if"))		return token(c, tokIF);
+	else if (0 == strcasecmp(c->id, "then"))	return token(c, tokTHEN);	
+	else if (0 == strcasecmp(c->id, "else"))	return token(c, tokELSE);	
+	else if (0 == strcasecmp(c->id, "endif"))	return token(c, tokENDIF);	
+	else if (0 == strcasecmp(c->id, "and"))		return token(c, tokAND);	
+	else if (0 == strcasecmp(c->id, "or"))		return token(c, tokOR);	
+	else if (0 == strcasecmp(c->id, "not"))		return token(c, tokNOT);	
+	else if (0 == strcasecmp(c->id, "goto"))	return token(c, tokGOTO);	
+	else if (0 == strcasecmp(c->id, "printValue"))	return token(c, tokPRINTVALUE);	
 	else						return token(c, tokID);
 }
 

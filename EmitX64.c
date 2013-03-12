@@ -31,6 +31,14 @@ struct x64_LabelRef
 #define x64_MAX_LABELS 1000
 #define x64_MAX_LABEL_REFS 2000
 
+typedef struct x64_FunCallState x64_FunCallState;
+struct x64_FunCallState
+{
+	int functionIndex;
+	int intArgCount;
+	int tempVarCount;
+};
+
 typedef struct x64_Context x64_Context;
 struct x64_Context 
 {
@@ -48,6 +56,10 @@ struct x64_Context
 	u8* stream;
 	u8* streamCursor;
 	u8* streamEnd;
+
+	x64_FunCallState funCallState;
+
+	i32 apiOffsetOnStack;
 };
 
 #define x64_getContext(be) ((x64_Context*)(be))
@@ -70,8 +82,6 @@ struct x64_Context
 #define x64_R13 ((u8)0xDu)
 #define x64_R14 ((u8)0xEu)
 #define x64_R15 ((u8)0xFu)
-
-#define x64_REX_W ((u8)0x48u)
 
 static void
 writei32(u8* s, i32 v)
@@ -185,13 +195,19 @@ modrmDisp32(u8 r, u8 rm)
 static void 
 e_pushReg(x64_Context* c, u8 reg)	
 { 
-	put(c, 0x50u+reg); 
+	if (reg >= 8)
+		put2(c, rex(0, 0, reg), 0x50u + (reg & 0x7u)); 
+	else
+		put(c, 0x50u+reg); 
 }
 
 static void 
 e_popReg(x64_Context* c, u8 reg)	
 { 
-	put(c, 0x58u+reg); 
+	if (reg >= 8)
+		put2(c, rex(0, 0, reg), 0x58u + (reg & 0x7u)); 
+	else
+		put(c, 0x58u+reg); 
 }
 
 static void 
@@ -350,6 +366,13 @@ e_test_rm64_imm32(x64_Context* c, u8 r1, i32 imm32)
 	put3(c, rexW(0, r1), 0xf7u, modrmReg(0, r1)); 
 	puti32(c, imm32);
 }
+	
+static void
+e_call_r64(x64_Context* c, u8 reg)
+{
+	/* FF /2 */
+	put2(c, 0xffu, modrmReg(2, reg)); 
+}
 
 /******************************************************************************/
 
@@ -506,8 +529,26 @@ x64_emitBeginFunc(cg_Backend* backend, cg_Label* label)
 	x64_Context* c = x64_getContext(backend);	
 	e_pushReg(		c, x64_RBP);
 	e_mov_r64_r64(		c, x64_RBP, x64_RSP);
+
+	/* These registers belong to the caller */
+	e_pushReg(		c, x64_RBX);
+	e_pushReg(		c, x64_R12);
+	e_pushReg(		c, x64_R13);
+	e_pushReg(		c, x64_R14);
+	e_pushReg(		c, x64_R15);
+
+	/* Add stack space for the pushed registers */
+	c->stackSize += 5 * sizeof(void*);
+
 	e_sub_r64_imm32(	c, x64_RSP, 0);
 	rememberStackSizePatch(c, 0);
+
+	/* Reserve space for api pointer on the stack */
+	c->apiOffsetOnStack = -(c->stackSize + sizeof(void*));
+	c->stackSize += sizeof(void*);
+
+	/* Save the api pointer to the stack (the first argument is in RDI) */	
+	e_mov_m64_r64(c, x64_RBP, c->apiOffsetOnStack, x64_RDI);
 }
 
 static void
@@ -521,8 +562,16 @@ x64_emitEndFunc(cg_Backend* backend)
 	} else {
 		e_mov_r64_imm64(	c, x64_RAX, 0);
 	}
+
 	e_add_r64_imm32(	c, x64_RSP, 0);
 	rememberStackSizePatch(c, 1);
+
+	e_popReg(		c, x64_R15);
+	e_popReg(		c, x64_R14);
+	e_popReg(		c, x64_R13);
+	e_popReg(		c, x64_R12);
+	e_popReg(		c, x64_RBX);
+
 	e_popReg(		c, x64_RBP);
 	e_ret(c);	
 }
@@ -649,12 +698,85 @@ x64_emitGoto(cg_Backend* backend, cg_Label* label)
 	e_jmp_rel(c, 0);
 	addLabelRef(c, label, (c->streamCursor - c->stream) - sizeof(i32));
 }
+	
+static void 
+x64_emitBeginFuncCall(cg_Backend* backend, u32 functionIndex, int tempVarCount)
+{
+	int i;
+	x64_Context* c = x64_getContext(backend);	
+	assert(c->funCallState.functionIndex == -1);
+
+	c->funCallState.functionIndex = functionIndex;
+	c->funCallState.intArgCount = 0;
+	
+	/* AMD64 */
+	/* Integer/pointer args: %rdi, %rsi, %rdx, %rcx, %r8 and %r9 */
+	/* Regs that belong to caller: %rbp, %rbx, %r12 - %r15 */
+	/* Temp regs that need to be saved: %r8 - %r11 (at most 4 of them) */
+	c->funCallState.tempVarCount = tempVarCount > 4 ? 4 : tempVarCount;
+
+	/* Save temp registers in use */	
+	for (i = 1; i <= c->funCallState.tempVarCount; ++i)
+		e_pushReg(c, x64_R8 + (i - 1));
+}
+
+static void 
+x64_emitPushArg(cg_Backend* backend, cg_Var* var)
+{
+	x64_Context* c = x64_getContext(backend);	
+	assert(c->funCallState.functionIndex != -1);
+	assert(var->type == cg_Int);
+
+	switch(c->funCallState.intArgCount) {
+	case 0:		moveVarToReg(c, x64_RDI, var); break;
+	case 1:		moveVarToReg(c, x64_RSI, var); break;
+	case 2:		moveVarToReg(c, x64_RDX, var); break;
+	case 3:		moveVarToReg(c, x64_RCX, var); break;
+	case 4:		moveVarToReg(c, x64_R8, var); break;
+	case 5:		moveVarToReg(c, x64_R9, var); break;
+	case 6:		assert(0 && "Too many arguments"); break;
+	}
+	
+	c->funCallState.intArgCount++;
+}
+
+static void
+x64_emitEndFuncCall(cg_Backend* backend, cg_Var* result)
+{
+	int i;
+	x64_Context* c = x64_getContext(backend);	
+	assert(c->funCallState.functionIndex != -1);
+
+	/* Load the api pointer */	
+	e_mov_r64_m64(	c, x64_RAX, x64_RBP, c->apiOffsetOnStack);
+
+	/* Load the correct function pointer */
+	e_mov_r64_m64(	c, x64_RAX, x64_RAX, c->funCallState.functionIndex * sizeof(void*));
+
+	e_call_r64(	c, x64_RAX);
+
+	/* Restore temp registers */	
+	for (i = c->funCallState.tempVarCount; i >= 1; --i)
+		e_popReg(c, x64_R8 + (i - 1));
+	
+	if (result)
+		moveRegToVar(c, result, x64_RAX);
+	
+	c->funCallState.functionIndex = -1;
+}
 
 static void
 x64_finalize(cg_Backend* backend)
 {
 	x64_Context* c = x64_getContext(backend);	
 	c->machineCode->codeSize = (u32)(c->streamCursor - c->stream);
+
+	/* Align stack size to a 16 bytes boundary */
+	/* There is already a return address pushed on the stack by the caller, so we need to
+	 * include it in the rounding operation but exclude it from the amount of stack space 
+	 * we reserve */
+	c->stackSize = ROUND_UP(c->stackSize + 8, 16) - 8;
+
 	patchStackSize(c);
 	fixupLabelRefs(c);
 }
@@ -675,10 +797,13 @@ x64_newBackend(mem_Allocator* allocator, mc_MachineCode* mc)
 	be->emitUnaryOp = x64_emitUnaryOp;
 	be->emitIfFalseGoto = x64_emitIfFalseGoto;
 	be->emitGoto = x64_emitGoto;
+	be->emitBeginFuncCall = x64_emitBeginFuncCall;
+	be->emitPushArg = x64_emitPushArg;
+	be->emitEndFuncCall = x64_emitEndFuncCall;
 	be->finalize = x64_finalize;
 	c->allocator = allocator;
 	ct_fixArrayInit(&c->stackEntries);
-	c->stackSize = 8; /* Caller pushes return address, so need to align to 16 bytes stack */
+	c->stackSize = 0; 
 	c->stackSizePatch[0] = 0;
 	c->stackSizePatch[1] = 0;
 	
@@ -693,6 +818,8 @@ x64_newBackend(mem_Allocator* allocator, mc_MachineCode* mc)
 	c->stream = (u8*)mc + sizeof(mc_MachineCode);
 	c->streamCursor = c->stream;
 	c->streamEnd = c->stream + mc->capacity - mc->codeOffset;
+
+	c->funCallState.functionIndex = -1;
 
 	return &c->backend;
 }

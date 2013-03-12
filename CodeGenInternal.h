@@ -39,7 +39,9 @@ struct cg_Backend
 	void (*emitUnaryOp)(cg_Backend* c, cg_Var* result, cg_UnaryOp op, cg_Var* var);
 	void (*emitIfFalseGoto)(cg_Backend* c, cg_Var* var, cg_Label* label);
 	void (*emitGoto)(cg_Backend* c, cg_Label* label);
-
+	void (*emitBeginFuncCall)(cg_Backend* c, u32 functionIndex, int tempVarCount);
+	void (*emitPushArg)(cg_Backend* c, cg_Var* var);
+	void (*emitEndFuncCall)(cg_Backend* c, cg_Var* result);
 	void (*finalize)(cg_Backend* c);
 };
 

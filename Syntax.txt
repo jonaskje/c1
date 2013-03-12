@@ -5,13 +5,16 @@ stm:		var = exp |
 		if exp then "\n" body endif |
 		if exp then "\n" body else "\n" body endif 
 		":" label 
-		goto label 
+		goto label
+		funcall
 stmline:	stm "\n"
 var:		numvar
 const:		numconst
 numvar:		id
 label:		id
 op:		+  |  -  |  * |  /  | %  |  &  |  "|" |  =  |  <>  |  <  |  >  |  <=  |  >=
+funcall:	id "(" arglist ")"
+arglist:	<empty> | exp (, exp)*
 
 
 
@@ -35,7 +38,7 @@ exp10:		+ exp9 | - exp9 | <empty>
 term1:		factor term2
 term2:		* term1 | / term1 | % term1 | <empty>
 
-factor:		const | var | (exp1) | -factor | not exp1
+factor:		const | var | (exp1) | -factor | not exp1 | funcall
 
 
 /////// Interesting templates

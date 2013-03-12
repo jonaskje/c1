@@ -9,3 +9,6 @@ typedef unsigned char		u8;
 typedef unsigned short		u16;
 typedef unsigned		u32;
 typedef unsigned long		u64;
+
+#define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
+

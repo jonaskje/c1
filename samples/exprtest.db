@@ -5,4 +5,10 @@
 	a = a + 1
 	b = b - 1
 	if a < 10 and b > 2 or c = 4 and a < 100 then goto loop
+	
+	a = 0
+:loop2
+	printValue(a)
+	a = a + 1
+	if a < 100 then goto loop2
 

@@ -65,6 +65,10 @@ void		cg_emitUnaryOp(		cg_Context* c, cg_Var* result, cg_UnaryOp op, cg_Var* var
 void		cg_emitIfFalseGoto(	cg_Context* c, cg_Var* var, cg_Label* label);
 void		cg_emitGoto(		cg_Context* c, cg_Label* label);
 
+void		cg_emitBeginFuncCall(	cg_Context* c, u32 functionIndex);
+void		cg_emitPushArg(		cg_Context* c, cg_Var* var);
+cg_Var*		cg_emitEndFuncCall(	cg_Context* c, int ignoreReturnValue);
+
 cg_Type		cg_varType(		cg_Var* var);
 u32		cg_varFlags(		cg_Var* var);	/* One or more of cg_VarFlags */
 

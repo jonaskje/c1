@@ -8,6 +8,15 @@
 #include <assert.h>
 #include <sys/mman.h>
 
+static void api_printValue(i64 value)
+{
+	printf("%li\n", value);
+}
+
+static demobasic_RuntimeApi g_runtimeApi = {
+	api_printValue
+};
+
 static int readFile(const char* filename, char** bufptr, size_t* size)
 {
 	FILE *f = fopen(filename, "rb");
@@ -46,7 +55,7 @@ freeCodeMemory(u8* mem, size_t size)
 	munmap(mem, size);
 }
 
-typedef long (DemoBasicFunc)(void);
+typedef long (DemoBasicFunc)(demobasic_RuntimeApi* api);
 
 static int 
 execute(mc_MachineCode* mc)
@@ -56,7 +65,7 @@ execute(mc_MachineCode* mc)
 	u8* execMem = allocCodeMemory(Capacity);
 	DemoBasicFunc* f = (DemoBasicFunc*)(execMem);
 	memcpy(execMem, (u8*)mc + mc->codeOffset, mc->codeSize);
-	result = f();
+	result = f(&g_runtimeApi);
 	freeCodeMemory(execMem, Capacity);
 	return result;
 }

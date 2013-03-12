@@ -19,3 +19,7 @@ if not r <> 0 then _retval = 1
 @Test5
 a = 1
 if -a = -1 then _retval = 1
+
+@Left associativity
+if 1 + 2 - 3 + 4 = 4 then _retval = 1
+

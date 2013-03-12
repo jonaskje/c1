@@ -10,7 +10,7 @@ enum lex_Token {
 	tokERROR_ILLEGAL_CHARACTER = -3,
 	tokERROR_IDENTIFIER_TOO_LONG = -2,
 	tokEOF = -1,
-	tokNEWLINE,
+	tokNEWLINE, /* 0 */
 	tokWHITE,
 	tokID,
 	tokNUMCONST,
@@ -20,7 +20,7 @@ enum lex_Token {
 	tokPLUS,
 	tokMINUS,
 	tokMULT,
-	tokDIV,
+	tokDIV, /* 10 */
 	tokMOD,
 	tokAND,
 	tokOR,
@@ -30,16 +30,17 @@ enum lex_Token {
 	tokLT,
 	tokGT,
 	tokLE,
-	tokGE,
-/*	tokLOGICALAND,
-	tokLOGICALOR,
-	tokLOGICALNOT, */
+	tokGE, 
 
-	tokIF,
+	tokIF,     /* 21 */
 	tokTHEN,
 	tokELSE,
 	tokENDIF,
 	tokGOTO,
+
+	tokAPI_BEGIN, 
+	tokPRINTVALUE = tokAPI_BEGIN, /* 26 */
+	tokAPI_END,
 
 	tokDONTMATCH = 2000000 /* Lexer will never return this token value */
 };

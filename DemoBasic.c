@@ -160,6 +160,7 @@ getToken(demobasic_Context* c)
 {
 	while (c->lex.tok == tokWHITE)
 		eatToken(c);
+/*	printf("%d ", c->lex.tok); */
 	return c->lex.tok;
 }
 
@@ -395,6 +396,20 @@ parseStm(demobasic_Context* c)
 		expectToken(c, tokID);
 		cg_emitGoto(c->cg, referenceLabel(c, c->lex.id));
 		eatToken(c);
+	} else if (getToken(c) >= tokAPI_BEGIN && getToken(c) < tokAPI_END) {
+		int apiToken = getToken(c);
+		int argc = 0;
+		eatToken(c);
+		expectAndEatToken(c, tokLPAR);
+		/* Function call */
+		if (apiToken == tokPRINTVALUE) {
+			cg_emitBeginFuncCall(c->cg, 0);
+			cg_emitPushArg(c->cg, parseExpression(c));
+		} else {
+			parseError(c);
+		}
+		expectAndEatToken(c, tokRPAR);
+		cg_emitEndFuncCall(c->cg, 1);
 	} else {
 		parseError(c);
 	}
