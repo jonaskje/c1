@@ -4,3 +4,5 @@ Only OS X at the moment.
 
 Requires GLFW 2.7 (http://sourceforge.net/projects/glfw/)
 
+Uses the Tundra build system (https://github.com/deplinenoise/tundra)
+
