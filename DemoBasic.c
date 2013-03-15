@@ -28,6 +28,8 @@ struct demobasic_Context
 	const mem_Allocator* allocator;
 	ct_FixArray(VarDecl, 1000) varDecls;
 	ct_FixArray(Label, 1000) labels;
+	u32 apiEntryCount;
+	const demobasic_ApiEntry* apiEntry;
 };
 
 
@@ -311,6 +313,45 @@ parseTerm1(demobasic_Context* c)
 	}
 }
 
+static const demobasic_ApiEntry*
+findFunction(demobasic_Context* c, const char *id)
+{
+	int i;
+	for (i = 0; i < (int)c->apiEntryCount; ++i) {
+		if (0 == strcasecmp(id, c->apiEntry[i].id)) {
+			return &c->apiEntry[i];
+		}
+	}
+	return 0;
+}
+
+static cg_Var*
+parseFunction(demobasic_Context* c, const demobasic_ApiEntry* entry, int ignoreReturnValue)
+{
+	u8 v;
+	int i;
+
+	eatToken(c);
+	
+	if (!entry) {
+		parseError(c);
+		return 0;
+	}
+
+	expectAndEatToken(c, tokLPAR);
+	/* Function call */
+	cg_emitBeginFuncCall(c->cg, (int)(entry - c->apiEntry));
+	i = 0;
+	while ((v = entry->argType[i++])) {
+		assert(v == cg_Int);
+		if (i > 1)
+			expectAndEatToken(c, tokCOMMA);
+		cg_emitPushArg(c->cg, parseExpression(c));
+	}
+	expectAndEatToken(c, tokRPAR);
+	return cg_emitEndFuncCall(c->cg, ignoreReturnValue);
+}
+
 static cg_Var* 
 parseFactor(demobasic_Context* c)
 {
@@ -320,9 +361,16 @@ parseFactor(demobasic_Context* c)
 		result = cg_newIntConstant(c->cg, c->lex.numConst);
 		eatToken(c);
 	} else if (getToken(c) == tokID) {	/* var */
-		VarDecl* var = findOrFailVarDecl(c, c->lex.id);
-		result = var->var;
-		eatToken(c);
+		const demobasic_ApiEntry* entry = findFunction(c, c->lex.id);
+		if (entry) {
+			/* It's a function call */
+			result = parseFunction(c, entry, 0);
+		} else {
+			/* It's a variable */
+			VarDecl* var = findOrFailVarDecl(c, c->lex.id);
+			result = var->var;
+			eatToken(c);
+		}
 	} else if (getToken(c) == tokLPAR) {	/* ( exp1 ) */
 		eatToken(c);
 		result = parseExpression(c);
@@ -348,10 +396,17 @@ static void
 parseStm(demobasic_Context* c)
 {
 	if (getToken(c) == tokID) {
-		VarDecl* var = findOrAddVarDecl(c, c->lex.id);
-		eatToken(c);
-		expectAndEatToken(c, tokEQ);
-		cg_emitAssign(c->cg, var->var, parseExpression(c));
+		const demobasic_ApiEntry* entry = findFunction(c, c->lex.id);
+		if (entry) {
+			/* It's a function call */
+			parseFunction(c, entry, 1);
+		} else {
+			/* It's a variable assignment */
+			VarDecl* var = findOrAddVarDecl(c, c->lex.id);
+			eatToken(c);
+			expectAndEatToken(c, tokEQ);
+			cg_emitAssign(c->cg, var->var, parseExpression(c));
+		}
 	} else if (getToken(c) == tokIF) {
 		cg_Var* expr;
 		cg_Label* label1 = cg_newTempLabel(c->cg);
@@ -396,20 +451,6 @@ parseStm(demobasic_Context* c)
 		expectToken(c, tokID);
 		cg_emitGoto(c->cg, referenceLabel(c, c->lex.id));
 		eatToken(c);
-	} else if (getToken(c) >= tokAPI_BEGIN && getToken(c) < tokAPI_END) {
-		int apiToken = getToken(c);
-		int argc = 0;
-		eatToken(c);
-		expectAndEatToken(c, tokLPAR);
-		/* Function call */
-		if (apiToken == tokPRINTVALUE) {
-			cg_emitBeginFuncCall(c->cg, 0);
-			cg_emitPushArg(c->cg, parseExpression(c));
-		} else {
-			parseError(c);
-		}
-		expectAndEatToken(c, tokRPAR);
-		cg_emitEndFuncCall(c->cg, 1);
 	} else {
 		parseError(c);
 	}
@@ -442,7 +483,9 @@ parseProgram(demobasic_Context* c)
 }
 
 mc_MachineCode* 
-demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator* allocator)
+demobasic_compile(const char* sourceCode, size_t sourceCodeLength, 
+		  const demobasic_ApiEntry* api, u32 apiCount, 
+		  mem_Allocator* allocator)
 {
 	const size_t Capacity = 1024*1024;
 	demobasic_Context c;
@@ -454,6 +497,10 @@ demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator
 	c.allocator = allocator;
 	ct_fixArrayInit(&c.varDecls);
 	ct_fixArrayInit(&c.labels);
+
+	c.apiEntry = api;
+	c.apiEntryCount = apiCount;
+
 	c.cg = cg_newContext(allocator, result);
 	lex_initContext(&c.lex, sourceCode, sourceCodeLength);
 	eatToken(&c);
@@ -464,4 +511,3 @@ demobasic_compile(const char* sourceCode, size_t sourceCodeLength, mem_Allocator
 	/* TODO: trim demobasic_MachineCode (realloc?) */
 	return result;
 }
-

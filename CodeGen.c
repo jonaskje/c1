@@ -275,8 +275,10 @@ cg_Var*
 cg_emitEndFuncCall(cg_Context* c, int ignoreReturnValue)
 {
 	cg_Var* result = 0;
-	if (!ignoreReturnValue)
+	if (!ignoreReturnValue) {
 		result = cg_newVar(c, 0, cg_Auto, 0);
+		result->v.i = c->tempVariableId++;
+	}
 	c->backend->emitEndFuncCall(c->backend, result);
 	return result;
 }

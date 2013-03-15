@@ -15,12 +15,13 @@ enum lex_Token {
 	tokID,
 	tokNUMCONST,
 	tokCOLON,
+	tokCOMMA,
 	tokLPAR,
 	tokRPAR,
 	tokPLUS,
 	tokMINUS,
-	tokMULT,
-	tokDIV, /* 10 */
+	tokMULT, /* 10 */
+	tokDIV, 
 	tokMOD,
 	tokAND,
 	tokOR,
@@ -32,15 +33,11 @@ enum lex_Token {
 	tokLE,
 	tokGE, 
 
-	tokIF,     /* 21 */
+	tokIF,     /* 22 */
 	tokTHEN,
 	tokELSE,
 	tokENDIF,
 	tokGOTO,
-
-	tokAPI_BEGIN, 
-	tokPRINTVALUE = tokAPI_BEGIN, /* 26 */
-	tokAPI_END,
 
 	tokDONTMATCH = 2000000 /* Lexer will never return this token value */
 };

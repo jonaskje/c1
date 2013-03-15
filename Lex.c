@@ -68,7 +68,6 @@ static int tokenId(lex_Context* c, const char* idBegin)
 	else if (0 == strcasecmp(c->id, "or"))		return token(c, tokOR);	
 	else if (0 == strcasecmp(c->id, "not"))		return token(c, tokNOT);	
 	else if (0 == strcasecmp(c->id, "goto"))	return token(c, tokGOTO);	
-	else if (0 == strcasecmp(c->id, "printValue"))	return token(c, tokPRINTVALUE);	
 	else						return token(c, tokID);
 }
 
@@ -153,6 +152,7 @@ int lex_nextToken(lex_Context* c)
 		case '(' : return token(c, tokLPAR);
 		case ')' : return token(c, tokRPAR);
 		case ':' : return token(c, tokCOLON);
+		case ',' : return token(c, tokCOMMA);
 		case '#' : /* comment */
 			   for(;;) {
 				   nextChar(c);

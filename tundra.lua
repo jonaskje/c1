@@ -22,6 +22,12 @@ Build {
 		Program {
 			Name = "DemoBasic",
 			Sources = { Glob { Dir = ".", Extensions = CFiles } },
+			Libs = {
+				{ "glfw"; Config = "macosx-*-*" },
+			},
+			Frameworks = {
+				{ "OpenGL", "Cocoa"; Config = "macosx-*-*" },
+			},
 			Env = {
 				CCOPTS = {
 					-- clang and GCC

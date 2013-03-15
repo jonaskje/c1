@@ -1,0 +1,10 @@
+	graphics(640, 480)
+	v = -100
+:loop
+	color(255, 255, 255, 255)
+	line(-100,v,100,-v)
+	line(v,100,-v,-100)
+	v = v + 1
+	if v >= 100 then v = -100
+	if display() = 1 then goto loop
+

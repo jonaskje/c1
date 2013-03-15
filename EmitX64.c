@@ -759,8 +759,10 @@ x64_emitEndFuncCall(cg_Backend* backend, cg_Var* result)
 	for (i = c->funCallState.tempVarCount; i >= 1; --i)
 		e_popReg(c, x64_R8 + (i - 1));
 	
-	if (result)
+	if (result) {
+		result->type = cg_Int;
 		moveRegToVar(c, result, x64_RAX);
+	}
 	
 	c->funCallState.functionIndex = -1;
 }
