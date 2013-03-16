@@ -69,6 +69,8 @@ void		cg_emitBeginFuncCall(	cg_Context* c, u32 functionIndex);
 void		cg_emitPushArg(		cg_Context* c, cg_Var* var);
 cg_Var*		cg_emitEndFuncCall(	cg_Context* c, int ignoreReturnValue);
 
+cg_Var*		cg_emitFuncCall(	cg_Context* c, u32 functionIndex, int argc, cg_Var** argv, int ignoreReturnValue);
+
 cg_Type		cg_varType(		cg_Var* var);
 u32		cg_varFlags(		cg_Var* var);	/* One or more of cg_VarFlags */
 

@@ -259,23 +259,19 @@ cg_varFlags(cg_Var* var)
 	return var->flags;
 }
 
-void		
-cg_emitBeginFuncCall(cg_Context* c, u32 functionIndex)
-{
-	c->backend->emitBeginFuncCall(c->backend, functionIndex, c->tempVariableId);
-}
-
-void		
-cg_emitPushArg(cg_Context* c, cg_Var* var)
-{
-	useTempVar(c, var);
-	c->backend->emitPushArg(c->backend, var);
-}
-
 cg_Var*		
-cg_emitEndFuncCall(cg_Context* c, int ignoreReturnValue)
+cg_emitFuncCall(cg_Context* c, u32 functionIndex, int argc, cg_Var** argv, int ignoreReturnValue)
 {
+	int i;
 	cg_Var* result = 0;
+	
+	c->backend->emitBeginFuncCall(c->backend, functionIndex, c->tempVariableId);
+
+	for (i = 0; i < argc; ++i) {
+		useTempVar(c, argv[i]);
+		c->backend->emitPushArg(c->backend, argv[i]);
+	}
+	
 	if (!ignoreReturnValue) {
 		result = cg_newVar(c, 0, cg_Auto, 0);
 		result->v.i = c->tempVariableId++;
@@ -283,4 +279,5 @@ cg_emitEndFuncCall(cg_Context* c, int ignoreReturnValue)
 	c->backend->emitEndFuncCall(c->backend, result);
 	return result;
 }
+
 

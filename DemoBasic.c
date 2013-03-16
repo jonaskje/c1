@@ -330,6 +330,8 @@ parseFunction(demobasic_Context* c, const api_FunctionDesc* entry, int ignoreRet
 {
 	u8 v;
 	int i;
+	int argc = 0;
+	cg_Var* argv[8];
 
 	eatToken(c);
 	
@@ -339,17 +341,18 @@ parseFunction(demobasic_Context* c, const api_FunctionDesc* entry, int ignoreRet
 	}
 
 	expectAndEatToken(c, tokLPAR);
-	/* Function call */
-	cg_emitBeginFuncCall(c->cg, (int)(entry - c->functionDescs));
+
 	i = 0;
 	while ((v = entry->argType[i++])) {
 		assert(v == cg_Int);
 		if (i > 1)
 			expectAndEatToken(c, tokCOMMA);
-		cg_emitPushArg(c->cg, parseExpression(c));
+		assert(argc < 8);
+		argv[argc++] = parseExpression(c);
 	}
 	expectAndEatToken(c, tokRPAR);
-	return cg_emitEndFuncCall(c->cg, ignoreReturnValue);
+
+	return cg_emitFuncCall(c->cg, (int)(entry - c->functionDescs), argc, argv, ignoreReturnValue);
 }
 
 static cg_Var* 
