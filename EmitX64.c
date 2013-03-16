@@ -703,6 +703,7 @@ static void
 x64_emitBeginFuncCall(cg_Backend* backend, u32 functionIndex, int tempVarCount)
 {
 	int i;
+	int n;
 	x64_Context* c = x64_getContext(backend);	
 	assert(c->funCallState.functionIndex == -1);
 
@@ -713,11 +714,17 @@ x64_emitBeginFuncCall(cg_Backend* backend, u32 functionIndex, int tempVarCount)
 	/* Integer/pointer args: %rdi, %rsi, %rdx, %rcx, %r8 and %r9 */
 	/* Regs that belong to caller: %rbp, %rbx, %r12 - %r15 */
 	/* Temp regs that need to be saved: %r8 - %r11 (at most 4 of them) */
-	c->funCallState.tempVarCount = tempVarCount > 4 ? 4 : tempVarCount;
+	n = tempVarCount > 4 ? 4 : tempVarCount;
+	
+	/* Always save in pairs to keep the stack aligned */
+	if (n > 0)
+		n = ((n - 1)/2 + 1)*2;
 
 	/* Save temp registers in use */	
-	for (i = 1; i <= c->funCallState.tempVarCount; ++i)
-		e_pushReg(c, x64_R8 + (i - 1));
+	for (i = 0; i < n; ++i)
+		e_pushReg(c, x64_R8 + i);
+	
+	c->funCallState.tempVarCount = n;
 }
 
 static void 
@@ -756,8 +763,8 @@ x64_emitEndFuncCall(cg_Backend* backend, cg_Var* result)
 	e_call_r64(	c, x64_RAX);
 
 	/* Restore temp registers */	
-	for (i = c->funCallState.tempVarCount; i >= 1; --i)
-		e_popReg(c, x64_R8 + (i - 1));
+	for (i = c->funCallState.tempVarCount - 1; i >= 0; --i)
+		e_popReg(c, x64_R8 + i);
 	
 	if (result) {
 		result->type = cg_Int;

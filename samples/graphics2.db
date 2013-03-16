@@ -1,0 +1,29 @@
+	w = 2560
+	h = 1440
+	i = 0
+	graphics(w, h)
+	ll = 5
+	ld = 1
+:loop
+	r0 = random(0, 255)
+	r1 = random(0, 255)
+	r2 = random(0, 255)
+	
+	rw0 = random((0-w/2),w/2)
+	rw1 = random((0-w/2),w/2)
+	rh0 = random((0-h/2),h/2)
+	rh1 = random((0-h/2),h/2)
+	color(r0, r1, r2, 255)
+	line(rw0, rh0, rw0 + ll/5, rh0)
+
+	i = i + 1
+	if i < 30000 then goto loop
+
+	i = 0
+
+	ll = ll + ld
+	if ll >= (30 * 5) then ld = -1
+	if ll <= 5 then ld = 1	
+
+	if display() = 1 then goto loop
+

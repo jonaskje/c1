@@ -1,7 +1,10 @@
-	graphics(640, 480)
+	w = 640
+	h = 480	
+	graphics(w, h)
 	v = -100
+	r = 255
 :loop
-	color(255, 255, 255, 255)
+	color(r + v - 100, r - v - 100, 255, 255)
 	line(-100,v,100,-v)
 	line(v,100,-v,-100)
 	v = v + 1

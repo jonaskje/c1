@@ -28,8 +28,8 @@ struct demobasic_Context
 	const mem_Allocator* allocator;
 	ct_FixArray(VarDecl, 1000) varDecls;
 	ct_FixArray(Label, 1000) labels;
-	u32 apiEntryCount;
-	const demobasic_ApiEntry* apiEntry;
+	u32 functionCount;
+	const api_FunctionDesc* functionDescs;
 };
 
 
@@ -313,20 +313,20 @@ parseTerm1(demobasic_Context* c)
 	}
 }
 
-static const demobasic_ApiEntry*
+static const api_FunctionDesc*
 findFunction(demobasic_Context* c, const char *id)
 {
 	int i;
-	for (i = 0; i < (int)c->apiEntryCount; ++i) {
-		if (0 == strcasecmp(id, c->apiEntry[i].id)) {
-			return &c->apiEntry[i];
+	for (i = 0; i < (int)c->functionCount; ++i) {
+		if (0 == strcasecmp(id, c->functionDescs[i].id)) {
+			return &c->functionDescs[i];
 		}
 	}
 	return 0;
 }
 
 static cg_Var*
-parseFunction(demobasic_Context* c, const demobasic_ApiEntry* entry, int ignoreReturnValue)
+parseFunction(demobasic_Context* c, const api_FunctionDesc* entry, int ignoreReturnValue)
 {
 	u8 v;
 	int i;
@@ -340,7 +340,7 @@ parseFunction(demobasic_Context* c, const demobasic_ApiEntry* entry, int ignoreR
 
 	expectAndEatToken(c, tokLPAR);
 	/* Function call */
-	cg_emitBeginFuncCall(c->cg, (int)(entry - c->apiEntry));
+	cg_emitBeginFuncCall(c->cg, (int)(entry - c->functionDescs));
 	i = 0;
 	while ((v = entry->argType[i++])) {
 		assert(v == cg_Int);
@@ -361,7 +361,7 @@ parseFactor(demobasic_Context* c)
 		result = cg_newIntConstant(c->cg, c->lex.numConst);
 		eatToken(c);
 	} else if (getToken(c) == tokID) {	/* var */
-		const demobasic_ApiEntry* entry = findFunction(c, c->lex.id);
+		const api_FunctionDesc* entry = findFunction(c, c->lex.id);
 		if (entry) {
 			/* It's a function call */
 			result = parseFunction(c, entry, 0);
@@ -396,7 +396,7 @@ static void
 parseStm(demobasic_Context* c)
 {
 	if (getToken(c) == tokID) {
-		const demobasic_ApiEntry* entry = findFunction(c, c->lex.id);
+		const api_FunctionDesc* entry = findFunction(c, c->lex.id);
 		if (entry) {
 			/* It's a function call */
 			parseFunction(c, entry, 1);
@@ -484,7 +484,7 @@ parseProgram(demobasic_Context* c)
 
 mc_MachineCode* 
 demobasic_compile(const char* sourceCode, size_t sourceCodeLength, 
-		  const demobasic_ApiEntry* api, u32 apiCount, 
+		  const api_FunctionDesc* api, u32 functionCount, 
 		  mem_Allocator* allocator)
 {
 	const size_t Capacity = 1024*1024;
@@ -498,8 +498,8 @@ demobasic_compile(const char* sourceCode, size_t sourceCodeLength,
 	ct_fixArrayInit(&c.varDecls);
 	ct_fixArrayInit(&c.labels);
 
-	c.apiEntry = api;
-	c.apiEntryCount = apiCount;
+	c.functionDescs = api;
+	c.functionCount = functionCount;
 
 	c.cg = cg_newContext(allocator, result);
 	lex_initContext(&c.lex, sourceCode, sourceCodeLength);

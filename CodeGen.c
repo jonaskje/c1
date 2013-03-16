@@ -268,6 +268,7 @@ cg_emitBeginFuncCall(cg_Context* c, u32 functionIndex)
 void		
 cg_emitPushArg(cg_Context* c, cg_Var* var)
 {
+	useTempVar(c, var);
 	c->backend->emitPushArg(c->backend, var);
 }
 
