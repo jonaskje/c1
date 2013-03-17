@@ -22,6 +22,13 @@
 		(array)->n++; \
 	} while(0)
 
+#define ct_fixArrayPushBackValue(array, instance) \
+	do { \
+		assert((array)->n <= sizeof((array)->a)/sizeof((array)->a[0])); \
+		(array)->a[(array)->n] = (instance); \
+		(array)->n++; \
+	} while(0)
+
 #define ct_fixArrayPushBackRaw(array) \
 	do { \
 		assert((array)->n <= sizeof((array)->a)/sizeof((array)->a[0])); \

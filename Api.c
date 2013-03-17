@@ -1,5 +1,6 @@
 #include "Api.h"
 #include "CodeGen.h"
+#include "Container.h"
 #include <GL/glfw.h>
 #include <stdio.h>
 #include <string.h>
@@ -32,7 +33,13 @@ struct ApiContext
 	int windowWidth;
 	int windowHeight;
 
+	float currentColor[4]; /* rgba */
+	float lineWidth;
+
 	struct ApiPenContext pen;
+
+	ct_FixArray(float, 5000000) verts;
+	ct_FixArray(float, 5000000) colors;
 };
 
 ApiContext g_apiContext;
@@ -50,6 +57,13 @@ api_graphics(i64 width, i64 height)
 
 	if (g_apiContext.graphicsInitialized)
 		return;
+
+	g_apiContext.currentColor[0] = 1.f;
+	g_apiContext.currentColor[1] = 1.f;
+	g_apiContext.currentColor[2] = 1.f;
+	g_apiContext.currentColor[3] = 1.f;
+
+	g_apiContext.lineWidth = 1.f;
 	
 	glfwInit();
 
@@ -66,7 +80,6 @@ api_graphics(i64 width, i64 height)
 	glLoadIdentity();
 	glOrtho(-width/2, width - width/2, -height/2, height - height/2, 0, 1);
 	glMatrixMode(GL_MODELVIEW);
-	glTranslatef(0.375f, 0.375f, 0);
 
 
 	glDisable(GL_DEPTH_TEST);
@@ -86,33 +99,91 @@ api_graphics(i64 width, i64 height)
 static void
 api_color(i64 r, i64 g, i64 b, i64 a)
 {
-	const float col[4] = { toColorF(r), toColorF(g), toColorF(b), toColorF(a) };
-	
-	if (!g_apiContext.graphicsInitialized)
-		return;
-
-	glColor4fv(col);
+	g_apiContext.currentColor[0] = toColorF(r);
+	g_apiContext.currentColor[1] = toColorF(g);
+	g_apiContext.currentColor[2] = toColorF(b);
+	g_apiContext.currentColor[3] = toColorF(a);
 }
 
 static void
-api_line(i64 x0, i64 y0, i64 x1, i64 y1)
+api_lineInternal(float x0, float y0, float x1, float y1)
 {
-	if (!g_apiContext.graphicsInitialized)
-		return;
+	int i;
+	for (i = 0; i < 4; ++i) {
+		ct_fixArrayPushBackValue(&g_apiContext.colors, g_apiContext.currentColor[0]);
+		ct_fixArrayPushBackValue(&g_apiContext.colors, g_apiContext.currentColor[1]);
+		ct_fixArrayPushBackValue(&g_apiContext.colors, g_apiContext.currentColor[2]);
+		ct_fixArrayPushBackValue(&g_apiContext.colors, g_apiContext.currentColor[3]);
+	}
 
-	glBegin(GL_LINES);
-	glVertex2f((float)x0, (float)y0);
-	glVertex2f((float)x1, (float)y1);
-	glEnd();
+	{
+		float w = g_apiContext.lineWidth / 2.f;
+
+		float dx = x1 - x0;
+		float dy = y1 - y0;
+		float tx, ty;
+		
+		float len = sqrtf(dx * dx + dy * dy);
+		
+		dx = w * dx/len;
+		dy = w * dy/len;
+
+		tx = -dy;
+		ty = dx;
+
+		ct_fixArrayPushBackValue(&g_apiContext.verts, x0 + tx - dx);
+		ct_fixArrayPushBackValue(&g_apiContext.verts, y0 + ty - dy);
+		
+		ct_fixArrayPushBackValue(&g_apiContext.verts, x0 - tx - dx);
+		ct_fixArrayPushBackValue(&g_apiContext.verts, y0 - ty - dy);
+		
+		ct_fixArrayPushBackValue(&g_apiContext.verts, x1 - tx + dx);
+		ct_fixArrayPushBackValue(&g_apiContext.verts, y1 - ty + dy);
+		
+		ct_fixArrayPushBackValue(&g_apiContext.verts, x1 + tx + dx);
+		ct_fixArrayPushBackValue(&g_apiContext.verts, y1 + ty + dy);
+	}
+}
+
+static void
+api_line(i64 x0i, i64 y0i, i64 x1i, i64 y1i)
+{
+	if (x0i == x1i && y0i == y1i)
+		return;
+	api_lineInternal((float)x0i, (float)y0i, (float)x1i, (float)y1i);
 }
 
 static i64
 api_display(void)
 {
 	if (!g_apiContext.graphicsInitialized) {
-		glfwTerminate();
+		g_apiContext.verts.n = 0;
+		g_apiContext.colors.n = 0;
 		return 0;
 	}
+
+	glBegin(GL_QUADS);
+	{	
+		const int n = g_apiContext.verts.n/8;
+		int i;
+		for (i = 0; i < n; ++i) {
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 0));
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 0));
+
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 4));
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 2));
+
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 8));
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 4));
+
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 12));
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 6));
+		}
+	}
+	glEnd();	
+
+	g_apiContext.verts.n = 0;
+	g_apiContext.colors.n = 0;
 
 	glFinish();
 	glfwSwapBuffers();
@@ -152,12 +223,7 @@ api_penForward(i64 amount)
 	g_apiContext.pen.y += cos(rot) * (double)amount;
 
 	if (g_apiContext.pen.isDown)
-	{
-		glBegin(GL_LINES);
-		glVertex2f((float)x, (float)y);
-		glVertex2f((float)g_apiContext.pen.x, (float)g_apiContext.pen.y);
-		glEnd();
-	}
+		api_lineInternal((float)x, (float)y, (float)g_apiContext.pen.x, (float)g_apiContext.pen.y);
 }
 
 static void
@@ -172,6 +238,15 @@ api_penReset(void)
 	memset(&g_apiContext.pen, 0, sizeof(g_apiContext.pen));
 }
 
+static void
+api_lineWidth(i64 thickness)
+{
+	if (thickness > 0)
+		g_apiContext.lineWidth = (float)thickness;
+	else
+		g_apiContext.lineWidth = 1.f;
+}
+
 /* End Pen */
 
 struct api_FunctionDesc g_apiEntries[] = {
@@ -181,6 +256,7 @@ struct api_FunctionDesc g_apiEntries[] = {
 	cg_Auto,	"color",	{ cg_Int, cg_Int, cg_Int, cg_Int },
 	cg_Auto,	"line",		{ cg_Int, cg_Int, cg_Int, cg_Int },
 	cg_Int,		"random",	{ cg_Int, cg_Int },
+	cg_Auto,	"lineWidth",	{ cg_Int },
 
 	/* Pen */
 	cg_Auto,	"penDown",	{ 0 },
@@ -198,6 +274,7 @@ static const void* g_runtimeApi[] = {
 	(void*)&api_color,
 	(void*)&api_line,
 	(void*)&api_random,
+	(void*)&api_lineWidth,
 	
 	/* Pen */
 	(void*)&api_penDown,

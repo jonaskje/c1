@@ -1,5 +1,5 @@
-	w = 2560
-	h = 1440
+	w = 800
+	h = 600
 	i = 0
 	graphics(w, h)
 	ll = 0
@@ -13,7 +13,7 @@
 	line(rw0, rh0, rw0 + ll/5 + 2, rh0)
 
 	i = i + 1
-	if i < 10000 then goto loop
+	if i < 50000 then goto loop
 
 	i = 0
 

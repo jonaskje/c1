@@ -3,6 +3,7 @@
 	graphics(w, h)
 	v = -100
 	r = 255
+	lineWidth(50)
 :loop
 	color(r + v - 100, r - v - 100, 255, 255)
 	line(-100,v,100,-v)

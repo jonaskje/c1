@@ -33,7 +33,7 @@ Build {
 					-- clang and GCC
 					{ "-g"; Config = { "*-gcc-debug", "*-clang-debug" } },
 					{ "-g -O2"; Config = { "*-gcc-production", "*-clang-production" } },
-					{ "-O3"; Config = { "*-gcc-release", "*-clang-release" } },
+					{ "-g -O3"; Config = { "*-gcc-release", "*-clang-release" } },
 					{ 
 						"--std=c89 -ansi -pedantic", 
 						"-Werror", 

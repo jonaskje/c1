@@ -1,6 +1,7 @@
 #include "Lex.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
@@ -43,7 +44,7 @@ static int tokenNumConst(lex_Context* c, const char* value)
 	char tmpvalue[lex_MAX_NUMCONST_LENGTH];
 	long v;
 	strncpy(tmpvalue, value, c->sourceCodeCursor - value);
-	tmpvalue[lex_MAX_NUMCONST_LENGTH - 1] = 0;
+	tmpvalue[c->sourceCodeCursor - value] = 0;
 	v = strtol(tmpvalue, 0, 10);
 	if (errno == EINVAL || errno == ERANGE)
 		return token(c, tokERROR_NUMCONST_OVERFLOW);
