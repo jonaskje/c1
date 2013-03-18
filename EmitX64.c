@@ -288,6 +288,12 @@ e_idiv_r64(x64_Context* c, u8 r1)
 }
 
 static void
+e_cqo(x64_Context* c)
+{
+	put2(c, rexW(0, 0), 0x99u);
+}
+
+static void
 e_xor_r64_r64(x64_Context* c, u8 r1, u8 r2)
 {
 	/* REX.W + 33 /r */
@@ -641,12 +647,12 @@ x64_emitBinOp(cg_Backend* backend, cg_Var* result, cg_Var* var1, cg_BinOp op, cg
 	case cg_MULT:		e_imul_r64_r64(		c, x64_RAX, x64_R15);	break;
 	
 	case cg_DIV:
-				e_xor_r64_r64(		c, x64_RDX, x64_RDX);
+				e_cqo(			c); /* sign extend RAX -> RDX:RAX */
 				e_idiv_r64(		c, x64_R15);	
 				break;
 	
 	case cg_MOD:
-				e_xor_r64_r64(		c, x64_RDX, x64_RDX);
+				e_cqo(			c); /* sign extend RAX -> RDX:RAX */
 				e_idiv_r64(		c, x64_R15);	
 				e_mov_r64_r64(		c, x64_RAX, x64_RDX); /* Remainder in RDX */
 				break;

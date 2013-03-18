@@ -1,3 +1,8 @@
+@Negate
+nx = 64
+t = -nx/2
+if t = -32 then _retval = 1
+
 @Test1
 a = 0
 _retval = 1
@@ -22,4 +27,13 @@ if -a = -1 then _retval = 1
 
 @Left associativity
 if 1 + 2 - 3 + 4 = 4 then _retval = 1
+
+@Sin
+x = -1
+y = -4
+nx = 32
+ny = 20 
+offset = 3
+lw = (sin((360000*(x * nx + y))/(nx*ny) + offset)*8)/1000
+if lw < 100000 then _retval = 1
 

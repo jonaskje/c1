@@ -247,6 +247,20 @@ api_lineWidth(i64 thickness)
 		g_apiContext.lineWidth = 1.f;
 }
 
+/* return [-1000, 1000] */
+static i64
+api_sin(i64 milliDegrees)
+{
+	return (i64)(1000.f * sinf((float)milliDegrees/1000.f*3.14159265f/180.f));
+}
+
+/* return [-1000, 1000] */
+static i64
+api_cos(i64 milliDegrees)
+{
+	return (i64)(1000.f * cosf((float)milliDegrees/1000.f*3.14159265f/180.f));
+}
+
 /* End Pen */
 
 struct api_FunctionDesc g_apiEntries[] = {
@@ -265,6 +279,10 @@ struct api_FunctionDesc g_apiEntries[] = {
 	cg_Auto,	"penRotate",	{ cg_Int },
 	cg_Auto,	"penReset",	{ 0 },
 
+	/* Math */
+	cg_Int,		"sin",		{ cg_Int },
+	cg_Int,		"cos",		{ cg_Int },
+
 };
 
 static const void* g_runtimeApi[] = {
@@ -282,6 +300,10 @@ static const void* g_runtimeApi[] = {
 	(void*)&api_penForward,
 	(void*)&api_penRotate,
 	(void*)&api_penReset,
+	
+	/* Math */
+	(void*)&api_sin,
+	(void*)&api_cos,
 };
 
 
