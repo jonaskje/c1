@@ -1,7 +1,11 @@
 #include "Api.h"
 #include "CodeGen.h"
 #include "Container.h"
+#if defined(_WIN32)
+#include <GLFW/glfw3.h>
+#else
 #include <GL/glfw.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -19,6 +23,8 @@ __forceinline float toColorF(i64 v)
 	return ((float)clampi64(v, 0, 255))/255.f;
 }
 
+#define doGlCheck() assert(GL_NO_ERROR == (err = glGetError()));
+
 struct ApiPenContext
 {
 	int isDown;
@@ -35,6 +41,8 @@ struct ApiContext
 
 	float currentColor[4]; /* rgba */
 	float lineWidth;
+
+	GLFWwindow* window;
 
 	struct ApiPenContext pen;
 
@@ -54,6 +62,10 @@ static void
 api_graphics(i64 width, i64 height)
 {
 	int fullscreen = 0;
+	GLenum err = GL_NO_ERROR;
+	int result = 0;
+	(void)err;
+	
 
 	if (g_apiContext.graphicsInitialized)
 		return;
@@ -65,30 +77,36 @@ api_graphics(i64 width, i64 height)
 
 	g_apiContext.lineWidth = 1.f;
 	
-	glfwInit();
+	result = glfwInit(); 
+	assert(result == GL_TRUE);
 
-	glfwOpenWindowHint(GLFW_WINDOW_NO_RESIZE, GL_TRUE);
+	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	glfwWindowHint(GLFW_VERSION_MAJOR, 1);
+	glfwWindowHint(GLFW_VERSION_MINOR, 0);
 
-	if (fullscreen)
-		glfwOpenWindow(width, height, 0, 0, 0, 0, 16, 0, GLFW_FULLSCREEN);
-	else
-		glfwOpenWindow(width, height, 0, 0, 0, 0, 16, 0, GLFW_WINDOW);
-	
+	if (fullscreen)	{
+		g_apiContext.window = glfwCreateWindow(width, height, "DemoBasic", glfwGetPrimaryMonitor(), 0);
+	} else {
+		g_apiContext.window = glfwCreateWindow(width, height, "DemoBasic", 0, 0);
+	}
+	assert(g_apiContext.window);
+
+	glfwMakeContextCurrent(g_apiContext.window);
 	glfwSwapInterval(1); /* vsync */
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-width/2, width - width/2, -height/2, height - height/2, 0, 1);
-	glMatrixMode(GL_MODELVIEW);
+	glMatrixMode(GL_PROJECTION); doGlCheck();
+	glLoadIdentity(); doGlCheck();
+	glOrtho(-width / 2, width - width / 2, -height / 2, height - height / 2, 0, 1); doGlCheck();
+	glMatrixMode(GL_MODELVIEW); doGlCheck();
 
 
-	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_DEPTH_TEST); doGlCheck();
 	
-	glClearColor(0, 0, 0, 255);
+	glClearColor(0, 0, 0, 255); doGlCheck();
 
 
-	glClear(GL_COLOR_BUFFER_BIT);
-	glfwSwapBuffers();
+	glClear(GL_COLOR_BUFFER_BIT); doGlCheck();
+	glfwSwapBuffers(g_apiContext.window);
 
 	
 	g_apiContext.graphicsInitialized = 1;
@@ -156,40 +174,47 @@ api_line(i64 x0i, i64 y0i, i64 x1i, i64 y1i)
 static i64
 api_display(void)
 {
+	GLenum err = GL_NO_ERROR;
+	(void)err;
+
 	if (!g_apiContext.graphicsInitialized) {
 		g_apiContext.verts.n = 0;
 		g_apiContext.colors.n = 0;
 		return 0;
 	}
 
-	glBegin(GL_QUADS);
+	glBegin(GL_QUADS); doGlCheck();
 	{	
 		const int n = g_apiContext.verts.n/8;
 		int i;
 		for (i = 0; i < n; ++i) {
-			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 0));
-			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 0));
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 0)); doGlCheck();
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 0)); doGlCheck();
 
-			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 4));
-			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 2));
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 4)); doGlCheck();
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 2)); doGlCheck();
 
-			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 8));
-			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 4));
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 8)); doGlCheck();
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 4)); doGlCheck();
 
-			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 12));
-			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 6));
+			glColor4fv(ct_fixArrayItem(&g_apiContext.colors, i * 16 + 12)); doGlCheck();
+			glVertex2fv(ct_fixArrayItem(&g_apiContext.verts, i * 8 + 6)); doGlCheck();
 		}
 	}
-	glEnd();	
+	
+	glEnd(); //doGlCheck(); // TODO: Fails for some reason...
+	glGetError();
 
 	g_apiContext.verts.n = 0;
 	g_apiContext.colors.n = 0;
 
-	glFinish();
-	glfwSwapBuffers();
-	glClear(GL_COLOR_BUFFER_BIT);
+	glFinish(); doGlCheck();
+	glfwSwapBuffers(g_apiContext.window);
+	glClear(GL_COLOR_BUFFER_BIT); doGlCheck();
 
-	return (!glfwGetKey(GLFW_KEY_ESC) && glfwGetWindowParam(GLFW_OPENED));
+	glfwPollEvents();
+
+	return (!glfwGetKey(g_apiContext.window, GLFW_KEY_ESCAPE) && !glfwWindowShouldClose(g_apiContext.window));
 }
 
 static i64
@@ -320,8 +345,11 @@ api_getFunctions()
 void 
 api_shutdown(void)
 {
-	if (g_apiContext.graphicsInitialized) 
+	if (g_apiContext.graphicsInitialized)
+	{
+		glfwDestroyWindow(g_apiContext.window);
 		glfwTerminate();
+	}
 	
 	memset(&g_apiContext, 0, sizeof(g_apiContext));
 }

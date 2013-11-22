@@ -8,7 +8,11 @@
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
+#if !defined(_WIN32)
 #include <sys/mman.h>
+#else
+#include <windows.h>
+#endif
 
 
 static int readFile(const char* filename, char** bufptr, size_t* size)
@@ -36,7 +40,11 @@ static int readFile(const char* filename, char** bufptr, size_t* size)
 static u8*
 allocCodeMemory(size_t size)
 {
-	u8* result = mmap(0, size, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+#if defined(_WIN32)
+	u8* result = (unsigned char *)VirtualAlloc( NULL, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE );
+#else
+	u8* result = mmap(0, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+#endif
 	assert(result != (u8*)~0ul);
 	return result;
 }
@@ -46,7 +54,11 @@ freeCodeMemory(u8* mem, size_t size)
 {
 	if (!mem)
 		return;
+#if defined(_WIN32)
+	VirtualFree(mem, size, MEM_DECOMMIT);
+#else
 	munmap(mem, size);
+#endif
 }
 
 typedef long (DemoBasicFunc)(const void** api);

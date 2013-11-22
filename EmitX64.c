@@ -83,6 +83,12 @@ struct x64_Context
 #define x64_R14 ((u8)0xEu)
 #define x64_R15 ((u8)0xFu)
 
+#if defined(_WIN32)
+#define x64_TEMPREGBASE x64_R12
+#else
+#define x64_TEMPREGBASE x64_R8
+#endif
+
 static void
 writei32(u8* s, i32 v)
 {
@@ -410,7 +416,7 @@ getTempReg(cg_Var* var)
 	assert(var->kind == cg_TempVariable);
 	/* Allowing at most 7 temp variables. r15 is reserved for operations. */
 	assert(var->v.i >= 0 && var->v.i < 7);
-	return x64_R8 + var->v.i;
+	return x64_TEMPREGBASE + var->v.i;
 }
 
 static void
@@ -554,7 +560,11 @@ x64_emitBeginFunc(cg_Backend* backend, cg_Label* label)
 	c->stackSize += sizeof(void*);
 
 	/* Save the api pointer to the stack (the first argument is in RDI) */	
+#if defined(_WIN32)
+	e_mov_m64_r64(c, x64_RBP, c->apiOffsetOnStack, x64_RCX);
+#else
 	e_mov_m64_r64(c, x64_RBP, c->apiOffsetOnStack, x64_RDI);
+#endif
 }
 
 static void
@@ -720,6 +730,12 @@ x64_emitBeginFuncCall(cg_Backend* backend, u32 functionIndex, int tempVarCount)
 	/* Integer/pointer args: %rdi, %rsi, %rdx, %rcx, %r8 and %r9 */
 	/* Regs that belong to caller: %rbp, %rbx, %r12 - %r15 */
 	/* Temp regs that need to be saved: %r8 - %r11 (at most 4 of them) */
+
+	/* Win x64 */
+	/* Integer/pointer args: RCX, RDX, R8, and R9 */
+	/* Regs that belong to caller: %rbp, %rbx, %r12 - %r15, rdi, rsp */
+	/* Temp regs that need to be saved:  RBX, RBP, RDI, RSI, RSP, R12, R13, R14, and R15        %r8 - %r11 (at most 4 of them) */
+
 	n = tempVarCount > 4 ? 4 : tempVarCount;
 	
 	/* Always save in pairs to keep the stack aligned */
@@ -728,7 +744,7 @@ x64_emitBeginFuncCall(cg_Backend* backend, u32 functionIndex, int tempVarCount)
 
 	/* Save temp registers in use */	
 	for (i = 0; i < n; ++i)
-		e_pushReg(c, x64_R8 + i);
+		e_pushReg(c, x64_TEMPREGBASE + i);
 	
 	c->funCallState.tempVarCount = n;
 }
@@ -741,13 +757,20 @@ x64_emitPushArg(cg_Backend* backend, cg_Var* var)
 	assert(var->type == cg_Int);
 
 	switch(c->funCallState.intArgCount) {
+#if defined(_WIN32)
+	case 0:		moveVarToReg(c, x64_RCX, var); break;
+	case 1:		moveVarToReg(c, x64_RDX, var); break;
+	case 2:		moveVarToReg(c, x64_R8, var); break;
+	case 3:		moveVarToReg(c, x64_R9, var); break;
+#else
 	case 0:		moveVarToReg(c, x64_RDI, var); break;
 	case 1:		moveVarToReg(c, x64_RSI, var); break;
 	case 2:		moveVarToReg(c, x64_RDX, var); break;
 	case 3:		moveVarToReg(c, x64_RCX, var); break;
 	case 4:		moveVarToReg(c, x64_R8, var); break;
 	case 5:		moveVarToReg(c, x64_R9, var); break;
-	case 6:		assert(0 && "Too many arguments"); break;
+#endif
+	default:	assert(0 && "Too many arguments"); break;
 	}
 	
 	c->funCallState.intArgCount++;
@@ -770,7 +793,7 @@ x64_emitEndFuncCall(cg_Backend* backend, cg_Var* result)
 
 	/* Restore temp registers */	
 	for (i = c->funCallState.tempVarCount - 1; i >= 0; --i)
-		e_popReg(c, x64_R8 + i);
+		e_popReg(c, x64_TEMPREGBASE + i);
 	
 	if (result) {
 		result->type = cg_Int;

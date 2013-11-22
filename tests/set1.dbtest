@@ -1,3 +1,6 @@
+@FunctionCall
+sin(100)
+
 @Negate
 nx = 64
 t = -nx/2

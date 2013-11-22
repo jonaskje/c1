@@ -318,7 +318,7 @@ findFunction(demobasic_Context* c, const char *id)
 {
 	int i;
 	for (i = 0; i < (int)c->functionCount; ++i) {
-		if (0 == strcasecmp(id, c->functionDescs[i].id)) {
+		if (0 == Strcasecmp(id, c->functionDescs[i].id)) {
 			return &c->functionDescs[i];
 		}
 	}

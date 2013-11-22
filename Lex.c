@@ -1,4 +1,5 @@
 #include "Lex.h"
+#include "Types.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -61,14 +62,14 @@ static int tokenId(lex_Context* c, const char* idBegin)
 	strncpy(c->id, idBegin, len);
 	assert(len < lex_MAX_ID_LENGTH);
 	c->id[len] = 0;
-	if      (0 == strcasecmp(c->id, "if"))		return token(c, tokIF);
-	else if (0 == strcasecmp(c->id, "then"))	return token(c, tokTHEN);	
-	else if (0 == strcasecmp(c->id, "else"))	return token(c, tokELSE);	
-	else if (0 == strcasecmp(c->id, "endif"))	return token(c, tokENDIF);	
-	else if (0 == strcasecmp(c->id, "and"))		return token(c, tokAND);	
-	else if (0 == strcasecmp(c->id, "or"))		return token(c, tokOR);	
-	else if (0 == strcasecmp(c->id, "not"))		return token(c, tokNOT);	
-	else if (0 == strcasecmp(c->id, "goto"))	return token(c, tokGOTO);	
+	if      (0 == Strcasecmp(c->id, "if"))		return token(c, tokIF);
+	else if (0 == Strcasecmp(c->id, "then"))	return token(c, tokTHEN);	
+	else if (0 == Strcasecmp(c->id, "else"))	return token(c, tokELSE);	
+	else if (0 == Strcasecmp(c->id, "endif"))	return token(c, tokENDIF);	
+	else if (0 == Strcasecmp(c->id, "and"))		return token(c, tokAND);	
+	else if (0 == Strcasecmp(c->id, "or"))		return token(c, tokOR);	
+	else if (0 == Strcasecmp(c->id, "not"))		return token(c, tokNOT);	
+	else if (0 == Strcasecmp(c->id, "goto"))	return token(c, tokGOTO);	
 	else						return token(c, tokID);
 }
 
@@ -101,11 +102,11 @@ int lex_nextToken(lex_Context* c)
 		}
 		return token(c, tokERROR_IDENTIFIER_TOO_LONG);
 	}
-	if (isnumber(c->c)) {
+	if (isdigit(c->c)) {
 		const char* constBegin = c->sourceCodeCursor - 1;
 		while(c->sourceCodeCursor - constBegin < lex_MAX_NUMCONST_LENGTH) {
 			nextChar(c);
-			if (!isnumber(c->c)) {
+			if (!isdigit(c->c)) {
 				prevChar(c);
 				return tokenNumConst(c, constBegin);
 			}
