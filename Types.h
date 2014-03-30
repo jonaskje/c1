@@ -22,6 +22,8 @@ typedef unsigned long		u64;
 
 #if defined(_WIN32)
 #define Strcasecmp stricmp
+#define ForceInline __forceinline
 #else
 #define Strcasecmp strcasecmp
+#define ForceInline __attribute__((always_inline))
 #endif

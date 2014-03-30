@@ -55,11 +55,11 @@ Build {
 			Name = "DemoBasic",
 			Sources = { Glob { Dir = ".", Extensions = CFiles } },
 			Libs = {
-				{ "glfw"; Config = "macosx-*-*" },
+				{ "glfw3"; Config = "macosx-*-*" },
 				{ "glfw3.lib", "OpenGL32.lib", "Gdi32.lib", "User32.lib", "Kernel32.lib"; Config = "win64-*-*" },
 			},
 			Frameworks = {
-				{ "OpenGL", "Cocoa"; Config = "macosx-*-*" },
+				{ "IOKit", "OpenGL", "Cocoa"; Config = "macosx-*-*" },
 			},
 			Env = {
 				CPPPATH = {
@@ -79,7 +79,11 @@ Build {
 					{ 
 						"--std=c89 -ansi -pedantic", 
 						"-Werror", 
-						"-Wextra", "-Wno-unused-parameter", "-Wno-unused-function"; Config = { "*-gcc-*", "*-clang-*" } },
+						"-Wextra", 
+						"-Wno-newline-eof", 
+						"-Wno-unused-parameter", 
+						"-Wno-unused-function"; 
+						Config = { "*-gcc-*", "*-clang-*" } },
 
 					-- MSVC config
 					{ "/MD"; Config = "*-msvc-debug" },

@@ -1,24 +1,20 @@
 #include "Api.h"
 #include "CodeGen.h"
 #include "Container.h"
-#if defined(_WIN32)
 #include <GLFW/glfw3.h>
-#else
-#include <GL/glfw.h>
-#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
 
-__forceinline i64 clampi64(i64 v, i64 lo, i64 hi)
+ForceInline i64 clampi64(i64 v, i64 lo, i64 hi)
 {
 	if (v < lo) return lo;
 	if (v > hi) return hi;
 	return v;
 }
 
-__forceinline float toColorF(i64 v)
+ForceInline float toColorF(i64 v)
 {
 	return ((float)clampi64(v, 0, 255))/255.f;
 }
@@ -202,7 +198,7 @@ api_display(void)
 		}
 	}
 	
-	glEnd(); //doGlCheck(); // TODO: Fails for some reason...
+	glEnd(); /*doGlCheck(); // TODO: Fails for some reason... */
 	glGetError();
 
 	g_apiContext.verts.n = 0;
